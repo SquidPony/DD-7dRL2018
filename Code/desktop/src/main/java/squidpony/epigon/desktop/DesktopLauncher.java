@@ -3,8 +3,8 @@ package squidpony.epigon.desktop;
 import com.badlogic.gdx.Files;
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication;
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration;
-import squidpony.dd.Dive;
-import squidpony.dd.Prefs;
+import squidpony.epigon.Dive;
+import squidpony.epigon.Prefs;
 
 public class DesktopLauncher {
 
