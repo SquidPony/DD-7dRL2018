@@ -98,7 +98,8 @@ public class Dive extends Game {
 
     // World
     private WorldGenerator worldGenerator;
-    private EpiMap map;
+    private EpiMap[] map;
+    private int depth;
     private FxHandler fxHandler;
     private MapOverlayHandler mapOverlayHandler;
     private ContextHandler contextHandler;
@@ -122,11 +123,12 @@ public class Dive extends Game {
 
     private float[] lightLevels;
 
-    public static final int worldWidth, worldHeight;
+    public static final int worldWidth, worldHeight, worldDepth;
     // Set up sizing all in one place
     static {
         worldWidth = 100;
         worldHeight = 50;
+        worldDepth = 300;
         int bigW = 70;
         int bigH = 26;
         int smallW = 50;
@@ -141,38 +143,6 @@ public class Dive extends Game {
         messageCount = bottomH - 2;
 
     }
-//    public static final String outlineFragmentShader = "#ifdef GL_ES\n"
-//            + "precision mediump float;\n"
-//            + "precision mediump int;\n"
-//            + "#endif\n"
-//            + "\n"
-//            + "uniform sampler2D u_texture;\n"
-//            + "uniform float u_smoothing;\n"
-//            + "varying vec4 v_color;\n"
-//            + "varying vec2 v_texCoords;\n"
-//            + "\n"
-//            + "void main() {\n"
-//            + "  if(u_smoothing <= 0.0) {\n"
-//            + "    float smoothing = -u_smoothing;\n"
-//            + "	   vec4 box = vec4(v_texCoords-0.000125, v_texCoords+0.000125);\n"
-//            + "	   float asum = smoothstep(0.5 - smoothing, 0.5 + smoothing, texture2D(u_texture, v_texCoords).a) + 0.5 * (\n"
-//            + "                 smoothstep(0.5 - smoothing, 0.5 + smoothing, texture2D(u_texture, box.xy).a) +\n"
-//            + "                 smoothstep(0.5 - smoothing, 0.5 + smoothing, texture2D(u_texture, box.zw).a) +\n"
-//            + "                 smoothstep(0.5 - smoothing, 0.5 + smoothing, texture2D(u_texture, box.xw).a) +\n"
-//            + "                 smoothstep(0.5 - smoothing, 0.5 + smoothing, texture2D(u_texture, box.zy).a));\n"
-//            + "    gl_FragColor = vec4(v_color.rgb, (asum / 3.0) * v_color.a);\n"
-//            + "	 } else {\n"
-//            + "    float distance = texture2D(u_texture, v_texCoords).a;\n"
-//            + "	   vec2 box = vec2(0.0, 0.00375 * (u_smoothing + 0.0825));\n"
-//            + "	   float asum = 0.7 * (smoothstep(0.5 - u_smoothing, 0.5 + u_smoothing, distance) + \n"
-//            + "                   smoothstep(0.5 - u_smoothing, 0.5 + u_smoothing, texture2D(u_texture, v_texCoords + box.xy).a) +\n"
-//            + "                   smoothstep(0.5 - u_smoothing, 0.5 + u_smoothing, texture2D(u_texture, v_texCoords - box.xy).a) +\n"
-//            + "                   smoothstep(0.5 - u_smoothing, 0.5 + u_smoothing, texture2D(u_texture, v_texCoords + box.yx).a) +\n"
-//            + "                   smoothstep(0.5 - u_smoothing, 0.5 + u_smoothing, texture2D(u_texture, v_texCoords - box.yx).a)),\n"
-//            + "                 outline = clamp((distance * 0.8 - 0.415) * 18, 0, 1);\n"
-//            + "	   gl_FragColor = vec4(mix(vec3(0.0), v_color.rgb * 1.2, outline), asum * v_color.a);\n" // the only change from SquidLib's version is: rgb * 1.2
-//            + "  }\n"
-//            + "}\n";
 
     public Dive()
     {
@@ -327,9 +297,10 @@ public class Dive extends Game {
         mapSLayers.animationCount = 0;
         creatures.clear();
         handBuilt = new HandBuilt(rng, mixer);
-        map = new EpiMap(worldWidth, worldHeight);
-        fovResult = new double[map.width][map.height];
-        priorFovResult = new double[map.width][map.height];
+
+        fovResult = new double[worldWidth][worldHeight];
+        priorFovResult = new double[worldWidth][worldHeight];
+
         mapSLayers.addLayer();//first added panel adds at level 1, used for cases when we need "extra background"
         mapSLayers.addLayer();//next adds at level 2, used for the cursor line
         mapSLayers.addLayer();//next adds at level 3, used for effects
@@ -338,11 +309,10 @@ public class Dive extends Game {
             messages.add(emptyICS);
         }
         fxHandler = new FxHandler(mapSLayers, 3, colorCenter, fovResult);
-        message("Generating world.");
-        worldGenerator = new WorldGenerator();
-        map = worldGenerator.buildWorld(map.width, map.height, 1, handBuilt)[0];
 
-        GreasedRegion floors = new GreasedRegion(map.opacities(), 0.999);
+        worldGenerator = new WorldGenerator();
+
+        prepCrawl();
 
         player = mixer.buildPhysical(handBuilt.playerBlueprint);
         player.stats.get(Stat.VIGOR).set(99.0);
@@ -351,17 +321,49 @@ public class Dive extends Game {
         player.stats.get(Stat.DEVOTION).actual(player.stats.get(Stat.DEVOTION).base() * 1.7);
         player.stats.values().forEach(lv -> lv.max(Double.max(lv.max(), lv.actual())));
 
+        infoHandler.setPlayer(player);
+        mapOverlayHandler.setPlayer(player);
+
+        player.appearance = mapSLayers.glyph(player.symbol, player.color, player.location.x, player.location.y);
+
+        calcFOV(player.location.x, player.location.y);
+
+        toPlayerDijkstra = new DijkstraMap(map[depth].simpleChars(), DijkstraMap.Measurement.EUCLIDEAN);
+        toPlayerDijkstra.rng = new RNG(); // random seed, player won't make deterministic choices
+        blocked = new GreasedRegion(map[depth].width, map[depth].height);
+        calcDijkstra();
+
+        contextHandler.message("Have fun!",
+                "The fates of countless worlds rest on you...",
+                style("Bump into statues ([*][/]s[,]) and stuff."),
+                style("Now [/]90% fancier[/]!"),
+                "Use ? for help, or q to quit.",
+                "Use mouse, numpad, or arrow keys to move.");
+        processingCommand = false; // let the player do input
+        infoHandler.showPlayerHealthAndArmor();
+        putMap();
+    }
+
+    private void prepFall(){
+        message("Falling.....");
+        map = worldGenerator.buildWorld(50, 1, 300, handBuilt);
+        player.location = Coord.get(25, 0);
+    }
+
+    private void prepCrawl() {
+        message("Generating crawl.");
+        map = worldGenerator.buildWorld(worldWidth, worldHeight, 1, handBuilt);
+
+        GreasedRegion floors = new GreasedRegion(map[depth].opacities(), 0.999);
         player.location = floors.singleRandom(rng);
         floors.remove(player.location);
         floors.copy().randomScatter(rng, 3)
-                .forEach(c -> map.contents[c.x][c.y].add(mixer.applyModification(
-                        mixer.buildWeapon(Weapon.randomPhysicalWeapon(++player.chaos).copy(), player.chaos),
-                        GauntRNG.getRandomElement(++player.chaos, Element.allEnergy).weaponModification())));
-        infoHandler.setPlayer(player);
-        mapOverlayHandler.setPlayer(player);
+            .forEach(c -> map[depth].contents[c.x][c.y].add(mixer.applyModification(
+            mixer.buildWeapon(Weapon.randomPhysicalWeapon(++player.chaos).copy(), player.chaos),
+            GauntRNG.getRandomElement(++player.chaos, Element.allEnergy).weaponModification())));
         floors.randomScatter(rng, 5);
         for (Coord coord : floors) {
-            if (map.contents[coord.x][coord.y].blockage == null) {
+            if (map[depth].contents[coord.x][coord.y].blockage == null) {
                 Physical p = mixer.buildPhysical(GauntRNG.getRandomElement(rootChaos.nextLong(), Inclusion.values()));
                 mixer.applyModification(p, handBuilt.makeAlive());
                 if (SColor.saturationOfFloat(p.color) < 0.8f) {
@@ -374,29 +376,10 @@ public class Dive extends Game {
                 WeightedTableWrapper<Physical> pt = new WeightedTableWrapper<>(p.chaos, pMeat, 1.0, 2, 4);
                 p.physicalDrops.add(pt);
                 p.location = coord;
-                map.contents[coord.x][coord.y].add(p);
+                map[depth].contents[coord.x][coord.y].add(p);
                 creatures.put(coord, p);
             }
         }
-
-        player.appearance = mapSLayers.glyph(player.symbol, player.color, player.location.x, player.location.y);
-
-        calcFOV(player.location.x, player.location.y);
-
-        toPlayerDijkstra = new DijkstraMap(map.simpleChars(), DijkstraMap.Measurement.EUCLIDEAN);
-        toPlayerDijkstra.rng = new RNG(); // random seed, player won't make deterministic choices
-        blocked = new GreasedRegion(map.width, map.height);
-        calcDijkstra();
-
-        contextHandler.message("Have fun!",
-                "The fates of countless worlds rest on you...",
-                style("Bump into statues ([*][/]s[,]) and stuff."),
-                style("Now [/]90% fancier[/]!"),
-                "Use ? for help, or q to quit.",
-                "Use mouse, numpad, or arrow keys to move.");
-        processingCommand = false; // let the player do input
-        infoHandler.showPlayerHealthAndArmor();
-        putMap();
     }
 
     private void runTurn() {

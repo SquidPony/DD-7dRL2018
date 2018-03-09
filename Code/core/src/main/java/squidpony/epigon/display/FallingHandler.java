@@ -19,14 +19,21 @@ public class FallingHandler {
     private int width;
     private int halfWidth;
     private int quarterWidth;
+    private int midLeft;
+    private int midRight;
     private int height;
     private Physical player;
+
+    private char[][] map;
 
     private int scrollOffsetY;
 
     public FallingHandler(SparseLayers layers) {
         width = layers.gridWidth;
         halfWidth = width / 2;
+        quarterWidth = halfWidth / 2;
+        midLeft = halfWidth - quarterWidth;
+        midRight = halfWidth + quarterWidth;
         height = layers.gridHeight;
         this.layers = layers;
 
@@ -38,8 +45,32 @@ public class FallingHandler {
         layers.setVisible(false);
     }
 
-    public void show(){
+    public void show(char[][] map, Physical player) {
+        this.map = map;
+        this.player = player;
+        update(0);
         layers.setVisible(true);
+    }
+
+    public void update(int yOffset) {
+        scrollOffsetY = yOffset;
+        int xOffset = 0; // TODO - have screen shift left or right when player gets outside of side mid range
+        for (int x = 1; x < width - 2; x++){
+            for (int y = 1; y < height - 2; y++){
+                int y2 = y + yOffset;
+                if (inMap(x,y2)){
+                    put(x, y, map[x][y2]);
+                } else {
+                    put(x, y, ' ');
+                }
+            }
+        }
+
+        put(player.location.x + xOffset, player.location.y + yOffset, player.symbol);
+    }
+
+    private boolean inMap(int x, int y){
+        return x >= 0 && x < map.length && y >= 0 && y < map[0].length;
     }
 
     private void clear() {

@@ -40,7 +40,7 @@ public class WorldGenerator {
 
         mineralPlacement();
         bubbleMap(false);
-        //intrudeMap();
+        intrudeMap();
 
         makeSolid();
 
