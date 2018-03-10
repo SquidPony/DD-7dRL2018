@@ -10,6 +10,8 @@ import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.Timer.Task;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import squidpony.Messaging;
 import squidpony.epigon.combat.ActionOutcome;
 import squidpony.epigon.data.WeightedTableWrapper;
@@ -43,6 +45,7 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javafx.util.Duration;
 
 import static squidpony.squidgrid.gui.gdx.SColor.lerpFloatColors;
 
@@ -51,6 +54,10 @@ import static squidpony.squidgrid.gui.gdx.SColor.lerpFloatColors;
  * Doesn't use any platform-specific code.
  */
 public class Dive extends Game {
+
+    private enum GameMode {
+        DIVE, CRAWL;
+    }
 
     // Sets a view up to have a map area in the upper left, a info pane to the right, and a message output at the bottom
     public static final PanelSize mapSize;
@@ -71,6 +78,8 @@ public class Dive extends Game {
     public HandBuilt handBuilt;
     public static final char BOLD = '\u4000', ITALIC = '\u8000', REGULAR = '\0';
 
+    private GameMode mode = GameMode.CRAWL;
+
     // Audio
     private SoundManager sound;
 
@@ -82,6 +91,8 @@ public class Dive extends Game {
     private SquidLayers infoSLayers;
     private SquidLayers contextSLayers;
     private SquidLayers messageSLayers;
+    private SparseLayers fallingSLayers;
+
     private SquidInput mapInput;
     private SquidInput contextInput;
     private SquidInput infoInput;
@@ -98,12 +109,13 @@ public class Dive extends Game {
 
     // World
     private WorldGenerator worldGenerator;
-    private EpiMap[] map;
+    private EpiMap map;
     private int depth;
     private FxHandler fxHandler;
     private MapOverlayHandler mapOverlayHandler;
     private ContextHandler contextHandler;
     private InfoHandler infoHandler;
+    private FallingHandler fallingHandler;
     private GreasedRegion blocked;
     private DijkstraMap toPlayerDijkstra;
     private Coord cursor;
@@ -115,15 +127,19 @@ public class Dive extends Game {
     private int autoplayTurns = 0;
     private boolean processingCommand = true;
 
+    // Timing
+    private long fallDelay = 800;
+    private Instant lastFall = Instant.now();
+    private Instant nextFall = Instant.now();
+
     // WIP stuff, needs large sample map
-    private Stage mapStage, messageStage, infoStage, contextStage, mapOverlayStage;
-    private Viewport mapViewport, messageViewport, infoViewport, contextViewport, mapOverlayViewport;
-    //private Camera camera;
-    //private TextCellFactory.Glyph playerEntity;
+    private Stage mapStage, messageStage, infoStage, contextStage, mapOverlayStage, fallingStage;
+    private Viewport mapViewport, messageViewport, infoViewport, contextViewport, mapOverlayViewport, fallingViewport;
 
     private float[] lightLevels;
 
     public static final int worldWidth, worldHeight, worldDepth;
+
     // Set up sizing all in one place
     static {
         worldWidth = 100;
@@ -141,11 +157,9 @@ public class Dive extends Game {
         infoSize = new PanelSize(smallW, smallH * 7 / 4, 7, 16);
         contextSize = new PanelSize(smallW, (bigH + bottomH - smallH) * 7 / 4, 7, 16);
         messageCount = bottomH - 2;
-
     }
 
-    public Dive()
-    {
+    public Dive() {
         mixer = new RecipeMixer();
         handBuilt = new HandBuilt(rng, mixer);
         Weapon.init();
@@ -178,6 +192,7 @@ public class Dive extends Game {
         infoViewport = new StretchViewport(infoSize.pixelWidth(), infoSize.pixelHeight());
         contextViewport = new StretchViewport(contextSize.pixelWidth(), contextSize.pixelHeight());
         mapOverlayViewport = new StretchViewport(mapSize.pixelWidth(), mapSize.pixelHeight());
+        fallingViewport = new StretchViewport(mapSize.pixelWidth(), mapSize.pixelHeight());
 
         // Here we make sure our Stages, which holds any text-based grids we make, uses our Batch.
         mapStage = new Stage(mapViewport, batch);
@@ -185,58 +200,65 @@ public class Dive extends Game {
         infoStage = new Stage(infoViewport, batch);
         contextStage = new Stage(contextViewport, batch);
         mapOverlayStage = new Stage(mapOverlayViewport, batch);
+        fallingStage = new Stage(fallingViewport, batch);
+
         font = DefaultResources.getLeanFamily();
         TextCellFactory smallFont = font.copy();
         messageIndex = messageCount;
         messageSLayers = new SquidLayers(
-                messageSize.gridWidth,
-                messageSize.gridHeight,
-                messageSize.cellWidth,
-                messageSize.cellHeight,
-                font);
+            messageSize.gridWidth,
+            messageSize.gridHeight,
+            messageSize.cellWidth,
+            messageSize.cellHeight,
+            font);
 
         infoSLayers = new SquidLayers(
-                infoSize.gridWidth,
-                infoSize.gridHeight,
-                infoSize.cellWidth,
-                infoSize.cellHeight,
-                smallFont);
+            infoSize.gridWidth,
+            infoSize.gridHeight,
+            infoSize.cellWidth,
+            infoSize.cellHeight,
+            smallFont);
         infoSLayers.getBackgroundLayer().setDefaultForeground(SColor.CW_ALMOST_BLACK);
         infoSLayers.getForegroundLayer().setDefaultForeground(colorCenter.lighter(SColor.CW_PALE_AZURE));
 
         contextSLayers = new SquidLayers(
-                contextSize.gridWidth,
-                contextSize.gridHeight,
-                contextSize.cellWidth,
-                contextSize.cellHeight,
-                smallFont);
+            contextSize.gridWidth,
+            contextSize.gridHeight,
+            contextSize.cellWidth,
+            contextSize.cellHeight,
+            smallFont);
         contextSLayers.getBackgroundLayer().setDefaultForeground(SColor.CW_ALMOST_BLACK);
         contextSLayers.getForegroundLayer().setDefaultForeground(SColor.CW_PALE_LIME);
 
         mapSLayers = new SparseLayers(
-                worldWidth,
-                worldHeight,
-                mapSize.cellWidth,
-                mapSize.cellHeight,
-                font);
-//        mapSLayers.font.shader = new ShaderProgram(DefaultResources.vertexShader, outlineFragmentShader);
-//        if (!mapSLayers.font.shader.isCompiled()) {
-//            Gdx.app.error("shader", "Outlined Distance Field font shader compilation failed:\n" + mapSLayers.font.shader.getLog());
-//        }
+            worldWidth,
+            worldHeight,
+            mapSize.cellWidth,
+            mapSize.cellHeight,
+            font);
 
-        //ArrayTools.fill(mapSLayers.getBackgrounds(), unseenColorFloat);
         infoHandler = new InfoHandler(infoSLayers, colorCenter);
         contextHandler = new ContextHandler(contextSLayers, mapSLayers);
 
         mapOverlaySLayers = new SparseLayers(
-                mapSize.gridWidth,
-                mapSize.gridHeight,
-                mapSize.cellWidth,
-                mapSize.cellHeight,
-                font);
+            mapSize.gridWidth,
+            mapSize.gridHeight,
+            mapSize.cellWidth,
+            mapSize.cellHeight,
+            font);
         mapOverlaySLayers.setDefaultBackground(colorCenter.desaturate(SColor.DB_INK, 0.8));
         mapOverlaySLayers.setDefaultForeground(SColor.LIME);
         mapOverlayHandler = new MapOverlayHandler(mapOverlaySLayers);
+
+        fallingSLayers = new SparseLayers(
+            mapSize.gridWidth,
+            mapSize.gridHeight,
+            mapSize.cellWidth,
+            mapSize.cellHeight,
+            font);
+        fallingSLayers.setDefaultBackground(colorCenter.desaturate(SColor.DB_INK, 0.8));
+        fallingSLayers.setDefaultForeground(SColor.LIME);
+        fallingHandler = new FallingHandler(fallingSLayers);
 
         font.tweakWidth(mapSize.cellWidth * 1.125f).tweakHeight(mapSize.cellHeight * 1.07f).initBySize();
         smallFont.tweakWidth(infoSize.cellWidth * 1.125f).tweakHeight(infoSize.cellHeight * 1.1f).initBySize();
@@ -248,11 +270,14 @@ public class Dive extends Game {
         infoSLayers.setBounds(0, 0, infoSize.pixelWidth(), infoSize.pixelHeight());
         contextSLayers.setBounds(0, 0, contextSize.pixelWidth(), contextSize.pixelHeight());
         mapOverlaySLayers.setBounds(0, 0, mapSize.pixelWidth(), mapSize.pixelWidth());
+        fallingSLayers.setBounds(0, 0, mapSize.pixelWidth(), mapSize.pixelWidth());
         mapSLayers.setPosition(0, 0);
+
         mapViewport.setScreenBounds(0, messageSize.pixelHeight(), mapSize.pixelWidth(), mapSize.pixelHeight());
         infoViewport.setScreenBounds(mapSize.pixelWidth(), contextSize.pixelHeight(), infoSize.pixelWidth(), infoSize.pixelHeight());
         contextViewport.setScreenBounds(mapSize.pixelWidth(), 0, contextSize.pixelWidth(), contextSize.pixelHeight());
         mapOverlayViewport.setScreenBounds(0, messageSize.pixelHeight(), mapSize.pixelWidth(), mapSize.pixelHeight());
+        fallingViewport.setScreenBounds(0, messageSize.pixelHeight(), mapSize.pixelWidth(), mapSize.pixelHeight());
 
         cursor = Coord.get(-1, -1);
 
@@ -267,14 +292,11 @@ public class Dive extends Game {
 
         mapStage.addActor(mapSLayers);
         mapOverlayStage.addActor(mapOverlaySLayers);
+        fallingStage.addActor(fallingSLayers);
         messageStage.addActor(messageSLayers);
         infoStage.addActor(infoSLayers);
         contextStage.addActor(contextSLayers);
 
-
-//        Color backLight = SColor.AMUR_CORK_TREE;
-//        lights = colorCenter.gradient(colorCenter.lerp(RememberedTile.memoryColor, backLight, 0.2), backLight, 12, Interpolation.sineOut); // work from outside color in
-//        lights.addAll(colorCenter.gradient(backLight, SColor.ALICE_BLUE, 64, Interpolation.sineOut));
         lightLevels = new float[76];
         float initial = lerpFloatColors(RememberedTile.memoryColorFloat, -0x1.7583e6p125F, 0.4f); // the float is SColor.AMUR_CORK_TREE
         for (int i = 0; i < 12; i++) {
@@ -312,9 +334,8 @@ public class Dive extends Game {
 
         worldGenerator = new WorldGenerator();
 
-        prepCrawl();
-
         player = mixer.buildPhysical(handBuilt.playerBlueprint);
+
         player.stats.get(Stat.VIGOR).set(99.0);
         player.stats.get(Stat.HUNGER).delta(-0.1);
         player.stats.get(Stat.HUNGER).min(0);
@@ -323,47 +344,59 @@ public class Dive extends Game {
 
         infoHandler.setPlayer(player);
         mapOverlayHandler.setPlayer(player);
-
-        player.appearance = mapSLayers.glyph(player.symbol, player.color, player.location.x, player.location.y);
-
-        calcFOV(player.location.x, player.location.y);
-
-        toPlayerDijkstra = new DijkstraMap(map[depth].simpleChars(), DijkstraMap.Measurement.EUCLIDEAN);
-        toPlayerDijkstra.rng = new RNG(); // random seed, player won't make deterministic choices
-        blocked = new GreasedRegion(map[depth].width, map[depth].height);
-        calcDijkstra();
+        fallingHandler.setPlayer(player);
 
         contextHandler.message("Have fun!",
-                "The fates of countless worlds rest on you...",
-                style("Bump into statues ([*][/]s[,]) and stuff."),
-                style("Now [/]90% fancier[/]!"),
-                "Use ? for help, or q to quit.",
-                "Use mouse, numpad, or arrow keys to move.");
+            "You are falling!",
+            style("Bump into statues ([*][/]s[,]) and stuff."),
+            style("Now [/]90% fancier[/]!"),
+            "Use ? for help, or q to quit.",
+            "Use numpad or arrow keys to move.");
         processingCommand = false; // let the player do input
         infoHandler.showPlayerHealthAndArmor();
-        putMap();
+
+        prepCrawl();
+
+        putCrawlMap();
     }
 
-    private void prepFall(){
+    private void prepFall() {
         message("Falling.....");
-        map = worldGenerator.buildWorld(50, 1, 300, handBuilt);
-        player.location = Coord.get(25, 0);
+        int w = 50, h = 80, d = worldDepth;
+        EpiMap[] base = worldGenerator.buildWorld(w, h, d, handBuilt);
+        map = new EpiMap(w, d);
+        for (int x = 0; x < w; x++) {
+            for (int y = 0; y < d; y++) {
+                map.contents[x][y] = base[y].contents[x][h / 2]; // transfer vertical map into side-view display map
+            }
+        }
+
+        // Start out in the horizontal middle and visual a bit down
+        player.location = Coord.get(w / 2, fallingSLayers.gridHeight / 3);
+
+        mode = GameMode.DIVE;
+        mapInput.setKeyHandler(fallingKeys);
+        mapInput.setMouse(fallingMouse);
+        fallingHandler.show(map);
+
+        lastFall = Instant.now();
+        nextFall = lastFall.plusMillis(fallDelay);
     }
 
     private void prepCrawl() {
         message("Generating crawl.");
-        map = worldGenerator.buildWorld(worldWidth, worldHeight, 1, handBuilt);
+        map = worldGenerator.buildWorld(worldWidth, worldHeight, 1, handBuilt)[0];
 
-        GreasedRegion floors = new GreasedRegion(map[depth].opacities(), 0.999);
+        GreasedRegion floors = new GreasedRegion(map.opacities(), 0.999);
         player.location = floors.singleRandom(rng);
         floors.remove(player.location);
         floors.copy().randomScatter(rng, 3)
-            .forEach(c -> map[depth].contents[c.x][c.y].add(mixer.applyModification(
+            .forEach(c -> map.contents[c.x][c.y].add(mixer.applyModification(
             mixer.buildWeapon(Weapon.randomPhysicalWeapon(++player.chaos).copy(), player.chaos),
             GauntRNG.getRandomElement(++player.chaos, Element.allEnergy).weaponModification())));
         floors.randomScatter(rng, 5);
         for (Coord coord : floors) {
-            if (map[depth].contents[coord.x][coord.y].blockage == null) {
+            if (map.contents[coord.x][coord.y].blockage == null) {
                 Physical p = mixer.buildPhysical(GauntRNG.getRandomElement(rootChaos.nextLong(), Inclusion.values()));
                 mixer.applyModification(p, handBuilt.makeAlive());
                 if (SColor.saturationOfFloat(p.color) < 0.8f) {
@@ -376,10 +409,25 @@ public class Dive extends Game {
                 WeightedTableWrapper<Physical> pt = new WeightedTableWrapper<>(p.chaos, pMeat, 1.0, 2, 4);
                 p.physicalDrops.add(pt);
                 p.location = coord;
-                map[depth].contents[coord.x][coord.y].add(p);
+                map.contents[coord.x][coord.y].add(p);
                 creatures.put(coord, p);
             }
         }
+
+        calcFOV(player.location.x, player.location.y);
+        toPlayerDijkstra = new DijkstraMap(map.simpleChars(), DijkstraMap.Measurement.EUCLIDEAN);
+        toPlayerDijkstra.rng = new RNG(); // random seed, player won't make deterministic choices
+        blocked = new GreasedRegion(map.width, map.height);
+        calcDijkstra();
+
+        if (player.appearance != null) {
+            mapSLayers.removeGlyph(player.appearance);
+        }
+        player.appearance = mapSLayers.glyph(player.symbol, player.color, player.location.x, player.location.y);
+
+        mode = GameMode.CRAWL;
+        mapInput.setKeyHandler(mapKeys);
+        mapInput.setMouse(mapMouse);
     }
 
     private void runTurn() {
@@ -407,40 +455,39 @@ public class Dive extends Game {
                             applyStatChange(player, Stat.VIGOR, amt);
                             amt *= -1; // flip sign for output message
                             if (player.stats.get(Stat.VIGOR).actual() <= 0) {
-                                if(ao.crit)
-                                    message(Messaging.transform("The " + creature.name + " [Blood]brutally[] slay$ you with " +
-                                            amt + " " + element.styledName + " damage!", player.name, Messaging.NounTrait.NO_GENDER));
-                                else
-                                    message(Messaging.transform("The " + creature.name + " slay$ you with " +
-                                        amt + " " + element.styledName + " damage!", player.name, Messaging.NounTrait.NO_GENDER));
+                                if (ao.crit) {
+                                    message(Messaging.transform("The " + creature.name + " [Blood]brutally[] slay$ you with "
+                                        + amt + " " + element.styledName + " damage!", player.name, Messaging.NounTrait.NO_GENDER));
+                                } else {
+                                    message(Messaging.transform("The " + creature.name + " slay$ you with "
+                                        + amt + " " + element.styledName + " damage!", player.name, Messaging.NounTrait.NO_GENDER));
+                                }
                             } else {
-                                if(ao.crit) {
+                                if (ao.crit) {
                                     mapSLayers.wiggle(player.appearance, 0.3f);
-                                    message(Messaging.transform("The " + creature.name + " [CW Bright Orange]critically[] " + element.verb + " you for " +
-                                            amt + " " + element.styledName + " damage!", player.name, Messaging.NounTrait.NO_GENDER));
+                                    message(Messaging.transform("The " + creature.name + " [CW Bright Orange]critically[] " + element.verb + " you for "
+                                        + amt + " " + element.styledName + " damage!", player.name, Messaging.NounTrait.NO_GENDER));
+                                } else {
+                                    message(Messaging.transform("The " + creature.name + " " + element.verb + " you for "
+                                        + amt + " " + element.styledName + " damage!", creature.name, Messaging.NounTrait.NO_GENDER));
                                 }
-                                else
-                                {
-                                    message(Messaging.transform("The " + creature.name + " " + element.verb + " you for " +
-                                            amt + " " + element.styledName + " damage!", creature.name, Messaging.NounTrait.NO_GENDER));
-                                }
-                                if(ao.targetConditioned)
-                                {
-                                    message(Messaging.transform("The " + creature.name + " " +
-                                            ConditionBlueprint.CONDITIONS.getOrDefault(ao.targetCondition, ConditionBlueprint.CONDITIONS.getAt(0)).verb + " you with @his attack!", creature.name, Messaging.NounTrait.NO_GENDER));
-                                    if(player.overlaySymbol != null) {
-                                        if(player.overlayAppearance != null) mapSLayers.removeGlyph(player.overlayAppearance);
+                                if (ao.targetConditioned) {
+                                    message(Messaging.transform("The " + creature.name + " "
+                                        + ConditionBlueprint.CONDITIONS.getOrDefault(ao.targetCondition, ConditionBlueprint.CONDITIONS.getAt(0)).verb + " you with @his attack!", creature.name, Messaging.NounTrait.NO_GENDER));
+                                    if (player.overlaySymbol != null) {
+                                        if (player.overlayAppearance != null) {
+                                            mapSLayers.removeGlyph(player.overlayAppearance);
+                                        }
                                         player.overlayAppearance = mapSLayers.glyph(player.overlaySymbol, player.overlayColor, step.x, step.y);
                                     }
                                 }
-
                             }
-                        } else
-                        {
-                            if(ao.crit)
+                        } else {
+                            if (ao.crit) {
                                 message("The " + creature.name + " missed you, but just barely.");
-                            else
+                            } else {
                                 message("The " + creature.name + " missed you.");
+                            }
                         }
                     }
                     else if (map.contents[step.x][step.y].blockage == null && !creatures.containsKey(step)) {
@@ -822,7 +869,7 @@ public class Dive extends Game {
     /**
      * Draws the map, applies any highlighting for the path to the cursor, and then draws the player.
      */
-    public void putMap() {
+    public void putCrawlMap() {
         float time = (System.currentTimeMillis() & 0xffffffL) * 0.00125f; // if you want to adjust the speed of flicker, change the multiplier
         long time0 = Noise.longFloor(time);
 
@@ -887,9 +934,24 @@ public class Dive extends Game {
         Gdx.gl.glClearColor(unseenColor.r, unseenColor.g, unseenColor.b, 1.0f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        mapStage.getCamera().position.x = player.appearance.getX();
-        mapStage.getCamera().position.y = player.appearance.getY();
-        putMap();
+        switch (mode) {
+            case CRAWL:
+                // crawl mode needs the camera to move around with the player since the playable crawl map is bigger than the view space
+                mapStage.getCamera().position.x = player.appearance.getX();
+                mapStage.getCamera().position.y = player.appearance.getY();
+                putCrawlMap();
+                break;
+            case DIVE:
+                if (Instant.now().isAfter(nextFall)) {
+                    lastFall = Instant.now();
+                    nextFall = lastFall.plusMillis(fallDelay);
+                    fallingHandler.fall();
+                } else {
+                    fallingHandler.update();
+                }
+                break;
+        }
+
         // if the user clicked, we have a list of moves to perform.
         if (!awaitedMoves.isEmpty()) {
             // this doesn't check for input, but instead processes and removes Points from awaitedMoves.
@@ -940,6 +1002,9 @@ public class Dive extends Game {
 
         mapOverlayStage.act();
         mapOverlayStage.draw();
+
+        fallingStage.act();
+        fallingStage.draw();
 
         //uncomment the upcoming line if you want to see how fast this can run at top speed...
         //for me, tommyettinger, on a laptop with recent integrated graphics, I get about 500 FPS.
@@ -994,6 +1059,10 @@ public class Dive extends Game {
 
         mapOverlayViewport.update(width, height, false);
         mapOverlayViewport.setScreenBounds(0, (int) (currentZoomY * messageSize.pixelHeight()),
+                width - (int) (currentZoomX * infoSize.pixelWidth()), height - (int) (currentZoomY * messageSize.pixelHeight()));
+
+        fallingViewport.update(width, height, false);
+        fallingViewport.setScreenBounds(0, (int) (currentZoomY * messageSize.pixelHeight()),
                 width - (int) (currentZoomX * infoSize.pixelWidth()), height - (int) (currentZoomY * messageSize.pixelHeight()));
     }
 
@@ -1062,6 +1131,12 @@ public class Dive extends Game {
                 case MOVE_UP_RIGHT:
                     scheduleMove(Direction.UP_RIGHT);
                     return;
+                case MOVE_LOWER:
+                    prepFall();
+                    return;
+                case MOVE_HIGHER:
+                    // TODO
+                    return;
                 case OPEN: // Open all the doors nearby
                     message("Opening nearby doors");
                     Arrays.stream(Direction.OUTWARDS)
@@ -1088,8 +1163,8 @@ public class Dive extends Game {
                     break;
                 case GATHER: // Pick everything nearby up
                     message("Picking up all nearby small things");
-                    for (int i = 0; i < 8; i++) {
-                        Coord c = player.location.translate(Direction.OUTWARDS[i]);
+                    for (Direction dir : Direction.values()) {
+                        Coord c = player.location.translate(dir);
                         if (map.inBounds(c) && fovResult[c.x][c.y] > 0) {
                             EpiTile tile = map.contents[c.x][c.y];
                             ListIterator<Physical> it = tile.contents.listIterator();
@@ -1312,6 +1387,42 @@ public class Dive extends Game {
             }
         }
     };
+
+    private final KeyHandler fallingKeys = new KeyHandler() {
+        @Override
+        public void handle(char key, boolean alt, boolean ctrl, boolean shift) {
+            int combined = SquidInput.combineModifiers(key, alt, ctrl, shift);
+            Verb verb = ControlMapping.defaultFallingViewMapping.get(combined);
+            if (verb == null){
+                message("Unknown input for falling mode: " + key);
+                return;
+            }
+            switch (verb) {
+                case MOVE_DOWN:
+                    fallingHandler.move(Direction.DOWN);
+                    break;
+                case MOVE_UP:
+                    fallingHandler.move(Direction.UP);
+                    break;
+                case MOVE_LEFT:
+                    fallingHandler.move(Direction.LEFT);
+                    break;
+                case MOVE_RIGHT:
+                    fallingHandler.move(Direction.RIGHT);
+                    break;
+                case SAVE:
+                    // TODO
+                    break;
+                case QUIT:
+                    // TODO
+                    break;
+                default:
+                    message("Can't " + verb.name + " from falling view.");
+                    break;
+            }
+        }
+    };
+
     private final KeyHandler debugKeys = new KeyHandler() {
         @Override
         public void handle(char key, boolean alt, boolean ctrl, boolean shift) {
@@ -1351,6 +1462,14 @@ public class Dive extends Game {
     });
 
     private final SquidMouse helpMouse = new SquidMouse(mapSize.cellWidth, mapSize.cellHeight, mapSize.gridWidth, mapSize.gridHeight, 0, 0, new InputAdapter() {
+
+        @Override
+        public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+            return false; // No-op for now
+        }
+    });
+
+    private final SquidMouse fallingMouse = new SquidMouse(mapSize.cellWidth, mapSize.cellHeight, mapSize.gridWidth, mapSize.gridHeight, 0, 0, new InputAdapter() {
 
         @Override
         public boolean touchUp(int screenX, int screenY, int pointer, int button) {

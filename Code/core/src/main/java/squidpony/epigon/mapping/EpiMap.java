@@ -23,6 +23,7 @@ public class EpiMap {
     public RememberedTile[][] remembered;
     public double[][] resistances;
     public StatefulRNG chaos;
+
     public EpiMap(int width, int height) {
         this.width = width;
         this.height = height;

@@ -10,6 +10,7 @@ import squidpony.squidmath.StatefulRNG;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import squidpony.squidgrid.mapping.styled.TilesetType;
 
 /**
  * Creates and populates a world.
@@ -23,7 +24,8 @@ public class WorldGenerator {
     private HandBuilt handBuilt;
     private RecipeMixer mixer;
     private StatefulRNG rng;
-    private Map<Stone, Physical> walls = new HashMap<>();
+    private Map<Stone, Physical> walls = new EnumMap<>(Stone.class);
+    private Map<Stone, Physical> floors = new EnumMap<>(Stone.class);
 
     public EpiMap[] buildWorld(int width, int height, int depth, HandBuilt handBuilt) {
         this.width = width;
@@ -64,38 +66,39 @@ public class WorldGenerator {
 //                }
 //            }
 //        }
-        FlowingCaveGenerator flow = new FlowingCaveGenerator(width, height, null, rng);
-        char[][] simpleChars = flow.generate();
 
         EpiTile tile;
         Physical adding;
-        EpiMap eMap = world[0];
-        for (int x = 0; x < width; x++) {
-            for (int y = 0; y < height; y++) {
-                char c = simpleChars[x][y];
-                tile = eMap.contents[x][y];
-                tile.blockage = null;
-                switch (c) {
-                    case '.':
-                        break;
-                    case '#':
-                        adding = getWall(tile.floor.terrainData.stone);
-                        tile.add(adding);
-                        break;
-                    case '+':
-                        Stone stone = tile.floor.terrainData.stone;
-                        adding = mixer.buildPhysical(stone);
-                        List<Physical> adds = mixer.mix(handBuilt.doorRecipe, Collections.singletonList(adding), Collections.emptyList());
-                        Physical door = adds.get(0);
-                        mixer.applyModification(door, rng.nextBoolean() ? handBuilt.closeDoor : handBuilt.openDoor);
-                        tile.add(door);
-                        break;
-                    default:
-                        tile.floor = mixer.buildPhysical(tile.floor); // Copy out the old floor before modifying it
-                        tile.floor.symbol = eMap.altSymbolOf(c);
-                        tile.floor.color = eMap.colorOf(c);
-                        tile.floor.name = "modified " + c;
-                        break;
+        for (EpiMap eMap : world) {
+            FlowingCaveGenerator flow = new FlowingCaveGenerator(width, height, rng.getRandomElement(TilesetType.values()), rng);
+            char[][] simpleChars = flow.generate();
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
+                    char c = simpleChars[x][y];
+                    tile = eMap.contents[x][y];
+                    tile.blockage = null;
+                    switch (c) {
+                        case '.':
+                            break;
+                        case '#':
+                            adding = getWall(tile.floor.terrainData.stone);
+                            tile.add(adding);
+                            break;
+                        case '+':
+                            Stone stone = tile.floor.terrainData.stone;
+                            adding = mixer.buildPhysical(stone);
+                            List<Physical> adds = mixer.mix(handBuilt.doorRecipe, Collections.singletonList(adding), Collections.emptyList());
+                            Physical door = adds.get(0);
+                            mixer.applyModification(door, rng.nextBoolean() ? handBuilt.closeDoor : handBuilt.openDoor);
+                            tile.add(door);
+                            break;
+                        default:
+                            tile.floor = mixer.buildPhysical(tile.floor); // Copy out the old floor before modifying it
+                            tile.floor.symbol = eMap.altSymbolOf(c);
+                            tile.floor.color = eMap.colorOf(c);
+                            tile.floor.name = "modified " + c;
+                            break;
+                    }
                 }
             }
         }
@@ -115,11 +118,23 @@ public class WorldGenerator {
         return wall;
     }
 
+    private Physical getFloor(Stone stone){
+        Physical floor = floors.get(stone);
+        if (floor != null){
+            return floor;
+        }
+
+        floor = mixer.buildPhysical(mixer.buildPhysical(stone));
+        floor.name = stone.toString() + " floor";
+        floors.put(stone, floor);
+        return floor;
+    }
+
     /**
      * Randomly places minerals in the provided map.
      */
     private void mineralPlacement() {
-        Physical floor = mixer.buildPhysical(rng.getRandomElement(Stone.values()));
+        Physical floor = getFloor(rng.getRandomElement(Stone.values()));
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
                 for (int z = 0; z < depth; z++) {
@@ -144,9 +159,7 @@ public class WorldGenerator {
             for (int y = 0; y < height; y++) {
                 for (int z = 0; z < depth; z++) {
                     EpiTile tile = world[z].contents[x][y];
-                    Physical p = mixer.buildPhysical(mixer.buildPhysical(tile.floor.terrainData.stone));
-                    mixer.applyModification(p, handBuilt.makeWall);
-                    tile.add(p);
+                    tile.add(getWall(tile.floor.terrainData.stone));
                 }
             }
         }
@@ -281,7 +294,7 @@ public class WorldGenerator {
             for (int x = currentX - forceX; x < currentX + forceX; x++) {
                 for (int y = currentY - forceY; y < currentY + forceY; y++) {
                     if (pointInBounds(x, y, z)) {
-                        world[z].contents[x][y].floor = mixer.buildPhysical(mixer.buildPhysical(intruder)); // TODO - get from cache
+                        world[z].contents[x][y].floor = getFloor(intruder);
                     }
                     forceY += rng.nextInt(3) - 1;
                     forceX += rng.nextInt(3) - 1;
@@ -327,7 +340,7 @@ public class WorldGenerator {
                         n = (Math.pow((double) (extrudeX - x) / sizeX, 1) + Math.pow((double) (extrudeY - y) / sizeX, 1));
                         if (n < 1) {//code for oval shape
                             if (pointInBounds(x, y, z)) {
-                                world[z].contents[x][y].floor = mixer.buildPhysical(mixer.buildPhysical(extruder)); // TODO - cache
+                                world[z].contents[x][y].floor = getFloor(extruder);
                             }
                         }
                     }
@@ -387,7 +400,7 @@ public class WorldGenerator {
                     if (changing) {
                         if (pointInBounds(i, k, j)) {
                             if (rng.nextInt(100) < 45) {
-                                world[j].contents[i][k].floor = mixer.buildPhysical(mixer.buildPhysical(changer)); // TODO - cache
+                                world[j].contents[i][k].floor = getFloor(changer); // TODO - cache
                             }
                         }
                     }
@@ -437,7 +450,7 @@ public class WorldGenerator {
                     if (changing) {
                         if (pointInBounds(i, k, j)) {
                             if (rng.nextInt(100) < 25) {
-                                world[j].contents[i][k].floor = mixer.buildPhysical(mixer.buildPhysical(changer)); // TODO - cache
+                                world[j].contents[i][k].floor = getFloor(changer);
                             }
                         }
                     }

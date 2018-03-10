@@ -123,4 +123,19 @@ public class ControlMapping {
                 (int)'q'|CTRL, UI_CLOSE_WINDOW,
                 (int)ESCAPE, UI_CLOSE_WINDOW
         );
+        public static final OrderedMap<Integer, Verb> defaultFallingViewMapping = OrderedMap.makeMap(
+                (int)UP_ARROW, MOVE_UP,
+                (int)DOWN_ARROW, MOVE_DOWN,
+                (int)LEFT_ARROW, MOVE_LEFT,
+                (int)RIGHT_ARROW, MOVE_RIGHT,
+                (int)'h', MOVE_LEFT,
+                (int)'j', MOVE_DOWN,
+                (int)'k', MOVE_UP,
+                (int)'l', MOVE_RIGHT,
+                (int)'S'|CAPS, SAVE,
+                (int)'S'|CTRL, SAVE,
+                (int)'Q'|CAPS, QUIT,
+                (int)'q'|CTRL, QUIT,
+                (int)ESCAPE, QUIT
+        );
 }

@@ -3,9 +3,16 @@ package squidpony.epigon.display;
 import com.badlogic.gdx.graphics.Color;
 import squidpony.ArrayTools;
 import squidpony.epigon.data.specific.Physical;
+import squidpony.epigon.mapping.EpiMap;
+import squidpony.epigon.mapping.EpiTile;
+import squidpony.epigon.universe.LiveValueModification;
+import squidpony.epigon.universe.Stat;
 import squidpony.squidgrid.Direction;
+import squidpony.squidgrid.Radius;
 import squidpony.squidgrid.gui.gdx.SColor;
 import squidpony.squidgrid.gui.gdx.SparseLayers;
+import squidpony.squidgrid.gui.gdx.TextCellFactory.Glyph;
+import squidpony.squidmath.Coord;
 
 /**
  * Oh no, you're falling!
@@ -24,7 +31,7 @@ public class FallingHandler {
     private int height;
     private Physical player;
 
-    private char[][] map;
+    private EpiMap map;
 
     private int scrollOffsetY;
 
@@ -41,42 +48,48 @@ public class FallingHandler {
         hide();
     }
 
+    public void setPlayer(Physical player){
+        this.player = player;
+    }
+
     public void hide() {
         layers.setVisible(false);
     }
 
-    public void show(char[][] map, Physical player) {
+    public void show(EpiMap map) {
         this.map = map;
-        this.player = player;
         update(0);
         layers.setVisible(true);
     }
 
+    public void update(){
+        update(scrollOffsetY);
+    }
+
     public void update(int yOffset) {
+        clear();
         scrollOffsetY = yOffset;
-        int xOffset = 0; // TODO - have screen shift left or right when player gets outside of side mid range
+        int dx = -1; // TODO - have screen shift left or right when player gets outside of side mid range
+        int dy = -1 + yOffset;
         for (int x = 1; x < width - 2; x++){
-            for (int y = 1; y < height - 2; y++){
-                int y2 = y + yOffset;
-                if (inMap(x,y2)){
-                    put(x, y, map[x][y2]);
+            for (int y = 1; y < height - 1; y++){
+                int x2 = x + dx;
+                int y2 = y + dy;
+                if (map.inBounds(x2,y2)){
+                    put(x, y, map.contents[x2][y2]);
                 } else {
                     put(x, y, ' ');
                 }
             }
         }
 
-        put(player.location.x + xOffset, player.location.y + yOffset, player.symbol);
-    }
-
-    private boolean inMap(int x, int y){
-        return x >= 0 && x < map.length && y >= 0 && y < map[0].length;
+        put(player.location.x + 1, player.location.y  + 1 - yOffset, player.symbol, player.color);
     }
 
     private void clear() {
         layers.clear(0);
 
-        doBorder();
+        doBorder(-scrollOffsetY, map.height);
     }
 
     private void doBorder() {
@@ -129,6 +142,10 @@ public class FallingHandler {
         }
     }
 
+    private void put(int x, int y, EpiTile tile){
+        put(x, y, tile.getSymbol(), tile.getForegroundColor());
+    }
+
     private void put(int x, int y, char c) {
         layers.put(x, y, c);
     }
@@ -141,17 +158,35 @@ public class FallingHandler {
         layers.put(x, y, c, color);
     }
 
+    private void damagePlayer() {
+        player.stats.get(Stat.VIGOR).modify(LiveValueModification.add(-1));
+
+        wigglePlayer();
+        layers.burst(player.location.x + 1, player.location.y - scrollOffsetY, 2, Radius.SPHERE, "*^&%*", SColor.CW_PALE_YELLOW.toFloatBits(), SColor.CW_FLUSH_RED.toFloatBits(), 0.3f);
+    }
+
+    private void wigglePlayer() {
+        Glyph g = layers.glyphFromGrid(player.location.x + 1, player.location.y - scrollOffsetY);
+        layers.wiggle(0f, g, 0.2f, () -> layers.removeGlyph(g));
+    }
+
     public void move(Direction dir) {
-        switch (dir) {
-            case UP:
-                break;
-            case DOWN:
-                break;
-            case LEFT:
-                break;
-            case RIGHT:
-                break;
+        Coord target = player.location.translate(dir);
+        // check against both backing map and current visible space vertically
+        if (target.isWithinRectangle(0, scrollOffsetY, map.width, Math.min(map.height, scrollOffsetY + height - 1))) {
+            player.location = target;
+            update();
+        } else {
+            wigglePlayer();
         }
+    }
+
+    public void fall() {
+        if (player.location.y <= scrollOffsetY) {
+            player.location = player.location.translate(Direction.DOWN);
+            damagePlayer();
+        }
+        update(scrollOffsetY + 1);
     }
 
 }
