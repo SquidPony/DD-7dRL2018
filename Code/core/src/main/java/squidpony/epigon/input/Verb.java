@@ -37,6 +37,7 @@ public enum Verb {
     OPEN("For doors only, \"Interact\" should be used for containers."), // If INTERAXCT is changed this also needs to change
     PAUSE("Hold it a minute!"),
     QUIT("Leave the game."),
+    REPLAY("Start the game again after ending."),
     REST("Let a turn pass without doing anything."), // Does this allow more healing than WAIT?
     SAVE("Save the game."),
     SHUT("For doors, \"Interact\" should be for container manipulation."), // If INTERACT is changed this also needs to change

@@ -27,10 +27,6 @@ import java.util.ListIterator;
  * Oh no, you're falling!
  */
 public class FallingHandler {
-
-    private SColor headingColor = SColor.CW_BLUE;
-    private SColor keyColor = SColor.FLORAL_LEAF;
-
     private SquidColorCenter colorCenter;
 
     private SparseLayers layers;
@@ -98,6 +94,7 @@ public class FallingHandler {
         clear();
 
         if (map.contents[player.location.x][player.location.y + currentDepth].blockage != null) {
+            smash();
             damagePlayer();
         }
 
@@ -204,6 +201,14 @@ public class FallingHandler {
         layers.wiggle(0f, g, 0.2f, () -> layers.removeGlyph(g));
     }
 
+    private void smash(){
+        EpiTile tile = map.contents[player.location.x][player.location.y];
+        if (tile.blockage != null){
+            player.addToInventory(RecipeMixer.buildPhysical(tile.blockage));
+            tile.blockage = null;
+        }
+    }
+
     public void move(Direction dir) {
         doMovement(dir.deltaX, dir.deltaY);
     }
@@ -215,6 +220,12 @@ public class FallingHandler {
         }
 
         Coord target = player.location.translate(x, y);
+        if (target.equals(player.location)){
+            return;
+        }
+
+        // moving while falling makes you tired!
+        player.stats.get(Stat.SLEEP).addActual(-1);
 
         if (target.isWithinRectangle(0, scrollOffsetY - currentDepth, map.width, Math.min(map.height, height - 2))) { //scrollOffsetY + 
             
@@ -228,6 +239,7 @@ public class FallingHandler {
             tile = map.contents[target.x][target.y + currentDepth];
             player.location = target;
             if (tile.blockage != null) {
+                smash();
                 damagePlayer();
             }
             ListIterator<Physical> li = tile.contents.listIterator();
@@ -261,14 +273,16 @@ public class FallingHandler {
     }
 
     public void fall() {
-//        if (!pressedUp){
-//            player.location = player.location.translate(Direction.DOWN);
-//        }
+        if (!pressedUp){
+            move(Direction.DOWN);
+        }
 
         if (player.location.y + currentDepth <= scrollOffsetY) {
-            player.location = player.location.setY(scrollOffsetY + 1 - currentDepth);
+            move(Direction.DOWN);
             damagePlayer();
         } 
+
+        player.stats.get(Stat.HUNGER).tick();
 
         pressedUp = false;
         update(scrollOffsetY + 1);

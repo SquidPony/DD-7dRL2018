@@ -1,7 +1,6 @@
 package squidpony.epigon.mapping;
 
 import squidpony.epigon.data.blueprint.Stone;
-import squidpony.epigon.data.mixin.Terrain;
 import squidpony.epigon.data.specific.Physical;
 import squidpony.epigon.dm.RecipeMixer;
 import squidpony.epigon.playground.HandBuilt;
@@ -12,6 +11,8 @@ import squidpony.squidmath.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import squidpony.epigon.data.WeightedTableWrapper;
+import squidpony.epigon.data.blueprint.Inclusion;
 
 /**
  * Creates and populates a world.
@@ -49,14 +50,17 @@ public class WorldGenerator {
                 char c = World.DIVE_HEADER[y].charAt(x);
                 map.contents[x][y] = new EpiTile();
                 switch (c) {
-                    case 'ø':
+                    case ' ':
                         map.contents[x][y].floor = handBuilt.emptySpace;
+                        break;
+                    case '$':
+                        map.contents[x][y].floor = handBuilt.emptySpace;
+                        map.contents[x][y].add(RecipeMixer.buildPhysical(handBuilt.money));
                         break;
                     default:
                         Physical p = new Physical();
-                        p.name = "" + c;
                         p.symbol = c;
-                        p.color = SColor.GOLDEN.toFloatBits();
+                        p.color = SColor.SCARLET.toFloatBits();
                         p.blocking = true;
                         map.contents[x][y].floor = p;
                         break;
@@ -89,9 +93,28 @@ public class WorldGenerator {
         rng = new StatefulRNG(handBuilt.rng.nextLong() ^ seed3);
         safeSpots.retract(2).randomScatter(rng, 8);
 
+        RecipeMixer recipeMixer = new RecipeMixer();
+        WeightedTableWrapper<Physical> table = new WeightedTableWrapper<>(rng.nextLong(), RecipeMixer.buildPhysical(handBuilt.money), Inclusion.values().length * 3);
+        for (Inclusion inc : Inclusion.values()){
+            Physical gem = recipeMixer.buildPhysical(inc);
+            gem.symbol = '♦';
+            table.add(gem, rng.between(1, 3));
+        }
+
         for (Coord cash : safeSpots) {
             if(map.contents[cash.x][cash.y].blockage == null) 
-                map.contents[cash.x][cash.y].add(RecipeMixer.buildPhysical(handBuilt.money));
+                map.contents[cash.x][cash.y].add(table.random());
+        }
+
+        // Close off bottom with "goal"
+        Physical goal = new Physical();
+        goal.color = SColor.ALICE_BLUE.toFloatBits();
+        goal.symbol = '▒';
+        for (int x = 0; x < width; x++){
+            map.contents[x][height-2].floor = x % 2 == 0 ? goal : handBuilt.emptySpace;
+            map.contents[x][height-2].blockage = null;
+            map.contents[x][height-1].floor = x % 2 == 1 ? goal : handBuilt.emptySpace;
+            map.contents[x][height-1].blockage = null;
         }
 
         return map;
@@ -111,31 +134,15 @@ public class WorldGenerator {
         }
 
         mineralPlacement();
+        faultMap();
+        bubbleMap(false);
+        extrudeMap();
+        faultMap();
         bubbleMap(false);
         intrudeMap();
+        metamorphoseMap();
 
         makeSolid();
-
-//        DungeonGenerator sdg = new DungeonGenerator(width, height, rng);
-//        //sdg.addGrass(15);
-//        sdg.addWater(15);
-//        sdg.addDoors(20, true);
-//        sdg.addGrass(10);
-//        char[][] simpleChars = DungeonUtility.closeDoors(sdg.generate());
-
-//        OrganicMapGenerator omg = new OrganicMapGenerator(width, height, rng);
-//        char[][] simpleChars = omg.generate();
-//        char[][] simpleChars = new char[width][height];
-//
-//        for (int x = 0; x < width; x++) {
-//            for (int y = 0; y < height; y++) {
-//                if (x <= 0 || y <= 0 || x >= width -1 || y >= height -1){
-//                    simpleChars[x][y] = '#';
-//                } else {
-//                    simpleChars[x][y] = '.';
-//                }
-//            }
-//        }
 
         EpiTile tile;
         Physical adding;
@@ -204,10 +211,12 @@ public class WorldGenerator {
      * Randomly places minerals in the provided map.
      */
     private void mineralPlacement() {
+        int z = 0;
+        int thickness = rng.between(12, 18);
         Physical floor = getFloor(rng.getRandomElement(Stone.values()));
-        for (int x = 0; x < width; x++) {
-            for (int y = 0; y < height; y++) {
-                for (int z = 0; z < depth; z++) {
+        while (z < depth) {
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
                     EpiTile tile = world[z].contents[x][y];
                     if (tile == null) {
                         tile = new EpiTile();
@@ -216,6 +225,12 @@ public class WorldGenerator {
 
                     tile.floor = floor;
                 }
+            }
+            z++;
+            thickness--;
+            if (thickness <= 0) {
+                thickness = rng.between(2, 10);
+                floor = getFloor(rng.getRandomElement(Stone.values()));
             }
         }
     }
@@ -236,10 +251,10 @@ public class WorldGenerator {
     }
 
     private void bubbleMap(boolean useExistingFloor) {
-        int quantity = (width * height) / 10;
+        int quantity = (width * Integer.max(depth, height)) / 10;
         int sizeX = 16;
         int sizeY = 15;
-        int sizeZ = 2;
+        int sizeZ = 8;
         int centerX = 0;
         int centerY = 0;
         int centerZ = 0;
@@ -248,8 +263,8 @@ public class WorldGenerator {
         for (int growStep = 0; growStep < quantity; growStep++) {
             if (counter <= 0) {
                 counter = rng.nextInt(3);
-                centerX = rng.between(1, width);
-                centerY = rng.between(1, height);
+                centerX = rng.nextInt(width);
+                centerY = rng.nextInt(height);
                 centerZ = rng.nextInt(depth);
 
                 if (useExistingFloor) {
@@ -287,22 +302,22 @@ public class WorldGenerator {
     }
 
     private void faultMap() {
-        Terrain terrain;
         int x;
         int y;//y = mx+b
         int x2;
         int y2;
         double m = 1;
 
-        do {
+//        do { // single thickness does not play nice with checks against single thickness :)
             x = rng.nextInt(width);
             y = rng.nextInt(height);
             do {
                 x2 = x - rng.nextInt(width);
                 y2 = y - rng.nextInt(height);
-            } while ((x2 == 0) || (y2 == 0));
+            } while ((x2 == 0) && (y2 == 0));
             m = (y2) / (x2);//y - y1/x - x1
-        } while (((int) m == 0) || ((int) m == 1) || ((int) m == -1));
+//        } while (((int) m == 0) || ((int) m == 1) || ((int) m == -1));
+        
         int b = (int) (y - m * x);//y-mx
 
         for (int z = 0; z < (depth - 1); z++) {
@@ -390,11 +405,13 @@ public class WorldGenerator {
             for (int n = 0; n < maxRecurse; n++) {
                 extrudeX = rng.nextInt(width - 2) + 1;
                 extrudeY = rng.nextInt(height - 2) + 1;
-                blueprint = world[testZ].contents[extrudeX][extrudeY].floor;
+                if (pointInBounds(extrudeX, extrudeY, testZ)) {
+                    blueprint = world[testZ].contents[extrudeX][extrudeY].floor;
 
-                if ((blueprint.terrainData.extrusive) || (blueprint.terrainData.intrusive)) {
-                    extrudeZ = testZ;
-                    break test_for_igneous;
+                    if ((blueprint.terrainData.extrusive) || (blueprint.terrainData.intrusive)) {
+                        extrudeZ = testZ;
+                        break test_for_igneous;
+                    }
                 }
             }
         }

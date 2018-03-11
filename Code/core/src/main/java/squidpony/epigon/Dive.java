@@ -343,10 +343,25 @@ public class Dive extends Game {
         fxHandler = new FxHandler(mapSLayers, 3, colorCenter, fovResult);
 
         worldGenerator = new WorldGenerator();
+        contextHandler.message("Have fun!",
+            "You are falling!",
+            style("Bump into statues ([*][/]s[,]) and stuff."),
+            style("Now [/]90% fancier[/]!"),
+            "Use ? for help, or q to quit.",
+            "Use numpad or arrow keys to move.");
 
+        initPlayer();
+
+//        prepCrawl();
+//        putCrawlMap();
+        prepFall();
+
+        processingCommand = false; // let the player do input
+    }
+
+    private void initPlayer(){
         player = mixer.buildPhysical(handBuilt.playerBlueprint);
-
-        player.stats.get(Stat.VIGOR).set(99.0);
+        player.stats.get(Stat.VIGOR).set(23.0);
         player.stats.get(Stat.HUNGER).delta(-0.1);
         player.stats.get(Stat.HUNGER).min(0);
         player.stats.get(Stat.DEVOTION).actual(player.stats.get(Stat.DEVOTION).base() * 1.7);
@@ -356,19 +371,7 @@ public class Dive extends Game {
         mapOverlayHandler.setPlayer(player);
         fallingHandler.setPlayer(player);
 
-        contextHandler.message("Have fun!",
-            "You are falling!",
-            style("Bump into statues ([*][/]s[,]) and stuff."),
-            style("Now [/]90% fancier[/]!"),
-            "Use ? for help, or q to quit.",
-            "Use numpad or arrow keys to move.");
-        processingCommand = false; // let the player do input
         infoHandler.showPlayerHealthAndArmor();
-
-//        prepCrawl();
-//        putCrawlMap();
-
-        prepFall();
     }
 
     private void prepFall() {
@@ -934,6 +937,19 @@ public class Dive extends Game {
         }
     }
 
+    public void showFallingGameOver(){
+        message("");
+        message("");
+        message("");
+        message("");
+        message("You have died.");
+        message("");
+        message("Restart (r) or Quit (q)?");
+
+        mapInput.flush();
+        mapInput.setKeyHandler(fallingGameOverKeys);
+    }
+
     @Override
     public void render() {
         super.render();
@@ -963,6 +979,13 @@ public class Dive extends Game {
                         fallingHandler.fall();
                     }
                     infoHandler.updateDisplay();
+
+                    for (Stat s : Stat.values()){
+                        if (player.stats.get(s).actual() <= 0){
+                            paused = true;
+                            showFallingGameOver();
+                        }
+                    }
                 } else {
                     fallDuration += currentFallDuration;
                     currentFallDuration = 0L;
@@ -1408,20 +1431,28 @@ public class Dive extends Game {
             }
             switch (verb) {
                 case MOVE_UP:
+                    if (!paused) {
                     nextInput = Instant.now().plusMillis(inputDelay);
                     fallingHandler.move(Direction.UP);
+                    }
                     break;
                 case MOVE_DOWN:
+                    if (!paused) {
                     nextInput = Instant.now().plusMillis(inputDelay);
                     fallingHandler.move(Direction.DOWN);
+                    }
                     break;
                 case MOVE_LEFT:
+                    if (!paused) {
                     nextInput = Instant.now().plusMillis(inputDelay);
                     fallingHandler.move(Direction.LEFT);
+                    }
                     break;
                 case MOVE_RIGHT:
+                    if (!paused) {
                     nextInput = Instant.now().plusMillis(inputDelay);
                     fallingHandler.move(Direction.RIGHT);
+                    }
                     break;
                 case PAUSE:
                     paused = !paused;
@@ -1439,6 +1470,30 @@ public class Dive extends Game {
                     break;
                 case QUIT:
                     // TODO
+                    break;
+                default:
+                    message("Can't " + verb.name + " from falling view.");
+                    break;
+            }
+        }
+    };
+
+    private final KeyHandler fallingGameOverKeys = new KeyHandler() {
+        @Override
+        public void handle(char key, boolean alt, boolean ctrl, boolean shift) {
+            int combined = SquidInput.combineModifiers(key, alt, ctrl, shift);
+            Verb verb = ControlMapping.defaultFallingViewGameOverMapping.get(combined);
+            if (verb == null){
+                message("Unknown input for falling game over mode: " + key);
+                return;
+            }
+            switch (verb) {
+                case REPLAY:
+                    initPlayer();
+                    prepFall();
+                    break;
+                case QUIT:
+                    Gdx.app.exit();
                     break;
                 default:
                     message("Can't " + verb.name + " from falling view.");

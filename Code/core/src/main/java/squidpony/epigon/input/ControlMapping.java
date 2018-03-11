@@ -123,4 +123,12 @@ public class ControlMapping {
                 (int)'q'|CTRL, QUIT,
                 (int)ESCAPE, QUIT
         );
+        public static final OrderedMap<Integer, Verb> defaultFallingViewGameOverMapping = OrderedMap.makeMap(
+                (int)'r'|CAPS, REPLAY,
+                (int)'r', REPLAY,
+                (int)'Q'|CAPS, QUIT,
+                (int)'q'|CTRL, QUIT,
+                (int)'q', QUIT,
+                (int)ESCAPE, QUIT
+        );
 }
