@@ -3,7 +3,6 @@ package squidpony.epigon.display;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
-import java.util.ListIterator;
 import squidpony.ArrayTools;
 import squidpony.epigon.data.specific.Physical;
 import squidpony.epigon.dm.RecipeMixer;
@@ -21,6 +20,8 @@ import squidpony.squidgrid.gui.gdx.TextCellFactory.Glyph;
 import squidpony.squidmath.Coord;
 import squidpony.squidmath.DeckRNG;
 import squidpony.squidmath.RNG;
+
+import java.util.ListIterator;
 
 /**
  * Oh no, you're falling!
@@ -48,6 +49,7 @@ public class FallingHandler {
 
     private int scrollOffsetY;
     private boolean pressedUp; // attempting to hover
+    private int currentDepth = 0;
 
     public FallingHandler(SparseLayers layers) {
         width = layers.gridWidth;
@@ -64,11 +66,11 @@ public class FallingHandler {
         colorCenter = new SquidColorCenter();
 
         layers.addLayer();//first added panel adds at level 1, used for cases when we need "extra background"
-        layers.addLayer();//next adds at level 2, used for the cursor line
-        layers.addLayer();//next adds at level 3, used for effects
+        //layers.addLayer();//NOT USED: next adds at level 2, used for the cursor line
+        layers.addLayer();//next adds at level 2, used for effects
         double[][] fov = new double[width][height];
         ArrayTools.fill(fov, 1);
-        fx = new FxHandler(layers, 3, colorCenter, fov);
+        fx = new FxHandler(layers, 2, colorCenter, fov);
 
         ArrayTools.fill(this.layers.backgrounds, layers.defaultPackedBackground);
         hide();
@@ -95,32 +97,33 @@ public class FallingHandler {
     public void update(int yOffset) {
         clear();
 
-        if (map.contents[player.location.x][player.location.y].blockage != null) {
+        if (map.contents[player.location.x][player.location.y + currentDepth].blockage != null) {
             damagePlayer();
         }
 
         scrollOffsetY = yOffset;
         int dx = -1; // TODO - have screen shift left or right when player gets outside of side mid range
         int dy = -1 + yOffset;
-        for (int x = 1; x < width - 2; x++){
+        for (int x = 1; x < width - 1; x++){
             for (int y = 1; y < height - 1; y++){
-                int x2 = x + dx;
-                int y2 = y + dy;
-                if (map.inBounds(x2,y2)){
-                    put(x, y, map.contents[x2][y2]);
-                } else {
-                    put(x, y, ' ');
-                }
+                put(x, y, map.contents[x - 1][y - 1]);
+//                int x2 = x + dx;
+//                int y2 = y + dy;
+//                if (map.inBounds(x2,y2)){
+//                    put(x, y, map.contents[x2][y2]);
+//                } else {
+//                    put(x, y, ' ');
+//                }
             }
         }
 
-        put(player.location.x + 1, player.location.y  + 1 - yOffset, player.symbol, player.color);
+        put(player.location.x + 1, player.location.y  + 1 + currentDepth, player.symbol, player.color);
     }
 
     private void clear() {
         layers.clear(0);
 
-        doBorder(-scrollOffsetY, map.height);
+        //doBorder(-scrollOffsetY, map.height);
     }
 
     private void doBorder() {
@@ -193,11 +196,11 @@ public class FallingHandler {
         player.stats.get(Stat.VIGOR).modify(LiveValueModification.add(-1));
 
         wigglePlayer();
-        layers.burst(player.location.x + 1, player.location.y - scrollOffsetY, 2, Radius.SPHERE, "*^!!*", SColor.CW_PALE_YELLOW.toFloatBits(), SColor.CW_FLUSH_RED.toFloatBits(), 0.3f);
+        layers.burst(player.location.x + 1, player.location.y + currentDepth, 2, Radius.SPHERE, "*^!!*", SColor.CW_PALE_YELLOW.toFloatBits(), SColor.CW_FLUSH_RED.toFloatBits(), 0.3f);
     }
 
     private void wigglePlayer() {
-        Glyph g = layers.glyphFromGrid(player.location.x + 1, player.location.y - scrollOffsetY);
+        Glyph g = layers.glyphFromGrid(player.location.x + 1, player.location.y + currentDepth);
         layers.wiggle(0f, g, 0.2f, () -> layers.removeGlyph(g));
     }
 
@@ -213,16 +216,16 @@ public class FallingHandler {
 
         Coord target = player.location.translate(x, y);
 
-        if (target.isWithinRectangle(0, scrollOffsetY, map.width, Math.min(map.height, scrollOffsetY + height - 2))) {
+        if (target.isWithinRectangle(0, scrollOffsetY - currentDepth, map.width, Math.min(map.height, height - 2))) { //scrollOffsetY + 
             
-            EpiTile tile = map.contents[player.location.x][player.location.y];
+            EpiTile tile = map.contents[player.location.x][player.location.y + currentDepth];
             tile.blockage = null;
             Physical floor = tile.floor;
             Physical t = RecipeMixer.buildPhysical(trail);
-            t.color = floor.color == SColor.TRANSPARENT.toFloatBits() ? rng.getRandomElement(SColor.RAINBOW).toFloatBits() : floor.color;
+            t.color = floor.color == SColor.TRANSPARENT.toFloatBits() ? SColor.RAINBOW[(target.x + target.y + 10) % 7].toFloatBits() : floor.color;
             tile.floor = t;
             
-            tile = map.contents[target.x][target.y];
+            tile = map.contents[target.x][target.y + currentDepth];
             player.location = target;
             if (tile.blockage != null) {
                 damagePlayer();
@@ -231,7 +234,7 @@ public class FallingHandler {
             while (li.hasNext()) {
                 Physical p = li.next();
                 player.addToInventory(p);
-                fx.twinkle(target, Element.FIRE);// have to have it lower due to border offset
+                fx.twinkle(Coord.get(target.x + 1, currentDepth + target.y + 1), Element.FIRE);// have to have it lower due to border offset
                 li.remove();
             }
             update();
@@ -258,12 +261,12 @@ public class FallingHandler {
     }
 
     public void fall() {
-        if (!pressedUp){
-            player.location = player.location.translate(Direction.DOWN);
-        }
+//        if (!pressedUp){
+//            player.location = player.location.translate(Direction.DOWN);
+//        }
 
-        if (player.location.y <= scrollOffsetY) {
-            player.location = player.location.translate(Direction.DOWN);
+        if (player.location.y + currentDepth <= scrollOffsetY) {
+            player.location = player.location.setY(scrollOffsetY + 1 - currentDepth);
             damagePlayer();
         } 
 
@@ -271,4 +274,7 @@ public class FallingHandler {
         update(scrollOffsetY + 1);
     }
 
+    public void setCurrentDepth(int i) {
+        currentDepth = i;
+    }
 }

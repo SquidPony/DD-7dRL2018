@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Interpolation;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.Timer.Task;
@@ -131,8 +132,10 @@ public class Dive extends Game {
     private Instant nextFall = Instant.now();
     private boolean paused = true;
     private Instant pausedAt = Instant.now();
+    private Instant unpausedAt = Instant.now();
     private long inputDelay = 100;
     private Instant nextInput = Instant.now();
+    private long fallDuration = 0L, currentFallDuration = 0L;
 
     // WIP stuff, needs large sample map
     private Stage mapStage, messageStage, infoStage, contextStage, mapOverlayStage, fallingStage;
@@ -140,13 +143,15 @@ public class Dive extends Game {
 
     private float[] lightLevels;
 
-    public static final int worldWidth, worldHeight, worldDepth;
+    public static final int worldWidth, worldHeight, worldDepth, totalDepth;
+    public float startingY, finishY, timeToFall;
 
     // Set up sizing all in one place
     static {
         worldWidth = 100;
         worldHeight = 50;
         worldDepth = 300;
+        totalDepth = worldDepth + World.DIVE_HEADER.length;
         int bigW = World.DIVE_HEADER[0].length() + 2;
         int bigH = 26;
         int smallW = 50;
@@ -253,8 +258,8 @@ public class Dive extends Game {
         mapOverlayHandler = new MapOverlayHandler(mapOverlaySLayers);
 
         fallingSLayers = new SparseLayers(
-            mapSize.gridWidth,
-            mapSize.gridHeight,
+            worldWidth,
+            totalDepth,
             mapSize.cellWidth,
             mapSize.cellHeight,
             font);
@@ -272,7 +277,7 @@ public class Dive extends Game {
         infoSLayers.setBounds(0, 0, infoSize.pixelWidth(), infoSize.pixelHeight());
         contextSLayers.setBounds(0, 0, contextSize.pixelWidth(), contextSize.pixelHeight());
         mapOverlaySLayers.setBounds(0, 0, mapSize.pixelWidth(), mapSize.pixelWidth());
-        fallingSLayers.setBounds(0, 0, mapSize.pixelWidth(), mapSize.pixelWidth());
+        fallingSLayers.setPosition(0, 0);
         mapSLayers.setPosition(0, 0);
 
         mapViewport.setScreenBounds(0, messageSize.pixelHeight(), mapSize.pixelWidth(), mapSize.pixelHeight());
@@ -299,6 +304,9 @@ public class Dive extends Game {
         infoStage.addActor(infoSLayers);
         contextStage.addActor(contextSLayers);
 
+        fallingStage.getCamera().position.y = startingY = fallingSLayers.worldY(mapSize.gridHeight >> 1);
+        finishY = fallingSLayers.worldY(totalDepth);
+        timeToFall = Math.abs(finishY - startingY) * fallDelay / mapSize.cellHeight;
         lightLevels = new float[76];
         float initial = lerpFloatColors(RememberedTile.memoryColorFloat, -0x1.7583e6p125F, 0.4f); // the float is SColor.AMUR_CORK_TREE
         for (int i = 0; i < 12; i++) {
@@ -369,7 +377,7 @@ public class Dive extends Game {
         map = worldGenerator.buildDive(w, d, handBuilt);
 
         // Start out in the horizontal middle and visual a bit down
-        player.location = Coord.get(w / 2, fallingSLayers.gridHeight / 3);
+        player.location = Coord.get(w / 2, 0); // for... reasons, y is an offset from the camera position
 
         mode = GameMode.DIVE;
         mapInput.flush();
@@ -942,7 +950,10 @@ public class Dive extends Game {
                 putCrawlMap();
                 break;
             case DIVE:
+                fallingHandler.setCurrentDepth(fallingSLayers.gridY(fallingStage.getCamera().position.y = MathUtils.lerp(startingY, finishY,
+                        (currentFallDuration + fallDuration) / timeToFall)));
                 if (!paused) {
+                    currentFallDuration = (unpausedAt.until(Instant.now(), ChronoUnit.MILLIS));
                     if (Instant.now().isAfter(nextInput)) {
                         fallingHandler.processInput();
                         nextInput = Instant.now().plusMillis(inputDelay);
@@ -953,6 +964,9 @@ public class Dive extends Game {
                     }
                     infoHandler.updateDisplay();
                 } else {
+                    fallDuration += currentFallDuration;
+                    currentFallDuration = 0L;
+                    unpausedAt = Instant.now();
                     fallingHandler.update();
                 }
                 break;
@@ -991,27 +1005,40 @@ public class Dive extends Game {
         messageViewport.apply(false);
         messageStage.act();
         messageStage.draw();
+        
+        if(mode.equals(GameMode.CRAWL)) {
+            //here we apply the other viewport, which clips a different area while leaving the message area intact.
+            mapViewport.apply(false);
+            mapStage.act();
+            //we use a different approach here because we can avoid ending the batch by setting this matrix outside a batch
+            batch.setProjectionMatrix(mapStage.getCamera().combined);
+            //then we start a batch and manually draw the stage without having it handle its batch...
+            batch.begin();
+            mapSLayers.font.configureShader(batch);
+            mapStage.getRoot().draw(batch, 1f);
+            //so we can draw the actors independently of the stage while still in the same batch
+            //player.appearance.draw(batch, 1.0f);
+            //we still need to end
+            batch.end();
 
-        //here we apply the other viewport, which clips a different area while leaving the message area intact.
-        mapViewport.apply(false);
-        mapStage.act();
-        //we use a different approach here because we can avoid ending the batch by setting this matrix outside a batch
-        batch.setProjectionMatrix(mapStage.getCamera().combined);
-        //then we start a batch and manually draw the stage without having it handle its batch...
-        batch.begin();
-        mapSLayers.font.configureShader(batch);
-        mapStage.getRoot().draw(batch, 1f);
-        //so we can draw the actors independently of the stage while still in the same batch
-        //player.appearance.draw(batch, 1.0f);
-        //we still need to end
-        batch.end();
-
-        mapOverlayStage.act();
-        mapOverlayStage.draw();
-
-        fallingStage.act();
-        fallingStage.draw();
-
+            mapOverlayStage.act();
+            mapOverlayStage.draw();
+        }
+        else {
+            //here we apply the other viewport, which clips a different area while leaving the message area intact.
+            fallingViewport.apply(false);
+            fallingStage.act();
+            //we use a different approach here because we can avoid ending the batch by setting this matrix outside a batch
+            batch.setProjectionMatrix(fallingStage.getCamera().combined);
+            //then we start a batch and manually draw the stage without having it handle its batch...
+            batch.begin();
+            fallingSLayers.font.configureShader(batch);
+            fallingStage.getRoot().draw(batch, 1f);
+            //so we can draw the actors independently of the stage while still in the same batch
+            //player.appearance.draw(batch, 1.0f);
+            //we still need to end
+            batch.end(); 
+        }
         //uncomment the upcoming line if you want to see how fast this can run at top speed...
         //for me, tommyettinger, on a laptop with recent integrated graphics, I get about 500 FPS.
         //this needs vsync set to false in DesktopLauncher.

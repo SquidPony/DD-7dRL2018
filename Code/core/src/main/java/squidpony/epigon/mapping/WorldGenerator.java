@@ -70,7 +70,8 @@ public class WorldGenerator {
                 seed2 = handBuilt.rng.nextLong() + seed1,
                 seed3 = handBuilt.rng.nextLong() + seed2 ^ seed1, storedSeed
         ;
-        final double portionGapSize = 0.1 * width, offGapSize = 0.125 * width, halfWidth = 0.5 * width, centerOff = 0.12 * width;
+        final double portionGapSize = 0.08 * width, offGapSize = 0.12 * width,
+                halfWidth = 0.5 * width, centerOff = 0.135 * width, extraWiggle = 0.02 * width;
         for (int level = World.DIVE_HEADER.length; level < height; level++) {
             for (int x = centerGap - gapSize; x < centerGap + gapSize; x++) {
                 map.contents[x][level].floor = handBuilt.emptySpace;
@@ -78,7 +79,8 @@ public class WorldGenerator {
                 safeSpots.insert(x, level);
             }
             // Basic1D noise is more wobbly, with small changes frequently and frequent (cyclical) major changes
-            gapSize = (int)(Noise.Basic1D.noise(level * 0.17, seed1) * portionGapSize + offGapSize);
+            gapSize = (int)(Noise.Basic1D.noise(level * 0.17, seed1) * portionGapSize + offGapSize
+                    + NumberTools.randomFloatCurved(seed3 * (level + seed2)) * extraWiggle);
             // swayRandomized spends a little more time at extremes before shifting suddenly to a very different value
             centerGap = (int)((NumberTools.swayRandomized(seed2, level * 0.08) + NumberTools.swayRandomized(seed3, level * 0.135)) * centerOff + halfWidth);
             centerGap = Math.max(centerGap, gapSize / 2 + 1); // make sure it's not off the left side
