@@ -10,6 +10,9 @@
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
+# IntelliJ IDEA project files
+*.iml
+
 # Package Files #
 *.jar
 *.war
@@ -23,3 +26,4 @@ hs_err_pid*
 /Code/.gradle
 /Code/.nb-gradle
 /Code/desktop/build
+/Code/.idea

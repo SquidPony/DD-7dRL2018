@@ -5,13 +5,13 @@ import squidpony.epigon.data.mixin.Terrain;
 import squidpony.epigon.data.specific.Physical;
 import squidpony.epigon.dm.RecipeMixer;
 import squidpony.epigon.playground.HandBuilt;
+import squidpony.squidgrid.gui.gdx.SColor;
 import squidpony.squidgrid.mapping.FlowingCaveGenerator;
-import squidpony.squidmath.StatefulRNG;
+import squidpony.squidgrid.mapping.styled.TilesetType;
+import squidpony.squidmath.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import squidpony.squidgrid.gui.gdx.SColor;
-import squidpony.squidgrid.mapping.styled.TilesetType;
 
 /**
  * Creates and populates a world.
@@ -35,8 +35,8 @@ public class WorldGenerator {
         this.width = width;
         this.height = depth + World.DIVE_HEADER.length;
         this.depth = 1;
-        EpiMap map = new EpiMap(width, this.height);
-
+        EpiMap map = new EpiMap(width, height);
+        GreasedRegion safeSpots = new GreasedRegion(width, height);
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < depth; y++) {
                 map.contents[x][y + World.DIVE_HEADER.length] = world[y].contents[x][0];
@@ -65,20 +65,35 @@ public class WorldGenerator {
         }
 
         int centerGap = width / 2;
-        int gapSize = (int) (width * 0.8);
-
-        for (int level = World.DIVE_HEADER.length; level < this.height; level++) {
-            for (int x = centerGap - gapSize / 2; x < centerGap + gapSize / 2; x++) {
+        int gapSize = (int) (width * 0.4);
+        long seed1 = handBuilt.rng.nextLong() + System.nanoTime(),
+                seed2 = handBuilt.rng.nextLong() + seed1,
+                seed3 = handBuilt.rng.nextLong() + seed2 ^ seed1, storedSeed
+        ;
+        final double portionGapSize = 0.1 * width, offGapSize = 0.125 * width, halfWidth = 0.5 * width, centerOff = 0.12 * width;
+        for (int level = World.DIVE_HEADER.length; level < height; level++) {
+            for (int x = centerGap - gapSize; x < centerGap + gapSize; x++) {
                 map.contents[x][level].floor = handBuilt.emptySpace;
                 map.contents[x][level].blockage = null;
+                safeSpots.insert(x, level);
             }
-
-            gapSize += rng.between(-4, 4);
-            gapSize = Math.max(gapSize, 6);
-            gapSize = (int) Math.min(gapSize, width * 0.8);
-            centerGap += rng.between(-5, 5);
+            // Basic1D noise is more wobbly, with small changes frequently and frequent (cyclical) major changes
+            gapSize = (int)(Noise.Basic1D.noise(level * 0.17, seed1) * portionGapSize + offGapSize);
+            // swayRandomized spends a little more time at extremes before shifting suddenly to a very different value
+            centerGap = (int)((NumberTools.swayRandomized(seed2, level * 0.08) + NumberTools.swayRandomized(seed3, level * 0.135)) * centerOff + halfWidth);
             centerGap = Math.max(centerGap, gapSize / 2 + 1); // make sure it's not off the left side
             centerGap = Math.min(centerGap, width - gapSize / 2 - 1); // make sure it's not off the right side
+        }
+        rng = new StatefulRNG(handBuilt.rng.nextLong() ^ seed3);
+        safeSpots.retract(2).randomScatter(rng, 8);
+        Physical money = new Physical();
+        money.name = "Gold Coin";
+        money.color = SColor.CW_GOLD.toFloatBits();
+        money.symbol = '$';
+        money.blocking = false;
+        for (Coord cash : safeSpots) {
+            if(map.contents[cash.x][cash.y].blockage == null) 
+                map.contents[cash.x][cash.y].add(RecipeMixer.buildPhysical(money));
         }
 
         return map;

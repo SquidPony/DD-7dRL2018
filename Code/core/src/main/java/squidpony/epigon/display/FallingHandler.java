@@ -1,5 +1,7 @@
 package squidpony.epigon.display;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import squidpony.ArrayTools;
 import squidpony.epigon.data.specific.Physical;
@@ -188,10 +190,17 @@ public class FallingHandler {
     }
 
     public void fall() {
-        if (!pressedUp) {
-            player.location = player.location.translate(Direction.DOWN);
+        int offX = 0, offY = 0;
+        if (!Gdx.input.isKeyPressed(Input.Keys.UP) && !Gdx.input.isKeyPressed(Input.Keys.NUMPAD_8)) {
+            ++offY;
+            if(Gdx.input.isKeyPressed(Input.Keys.DOWN) || Gdx.input.isKeyPressed(Input.Keys.NUM_2))
+                ++offY;
         }
-
+        if(Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.NUMPAD_4))
+            --offX;
+        else if(Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.NUMPAD_6))
+            ++offX;
+        player.location = player.location.translateCapped(offX, offY, map.width, Math.min(map.height, scrollOffsetY + height - 1));
         if (player.location.y <= scrollOffsetY) {
             player.location = player.location.translate(Direction.DOWN);
             damagePlayer();
@@ -199,7 +208,7 @@ public class FallingHandler {
             damagePlayer();
         }
 
-        pressedUp = false;
+        //pressedUp = false;
         update(scrollOffsetY + 1);
     }
 

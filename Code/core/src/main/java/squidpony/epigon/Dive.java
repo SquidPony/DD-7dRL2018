@@ -10,7 +10,6 @@ import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.Timer.Task;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
-import java.time.Instant;
 import squidpony.Messaging;
 import squidpony.epigon.combat.ActionOutcome;
 import squidpony.epigon.data.WeightedTableWrapper;
@@ -40,6 +39,7 @@ import squidpony.squidgrid.gui.gdx.*;
 import squidpony.squidgrid.gui.gdx.SquidInput.KeyHandler;
 import squidpony.squidmath.*;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
@@ -174,7 +174,7 @@ public class Dive extends Game {
         // Set the map size early so things can reference it
         System.out.println(rng.getState());
 
-        Coord.expandPoolTo(worldWidth, worldHeight);
+        Coord.expandPoolTo(worldWidth + 1, Math.max(worldHeight, worldDepth + World.DIVE_HEADER.length) + 1);
 
         bgColor = SColor.WHITE;
         unseenColor = SColor.BLACK_DYE;
@@ -367,8 +367,9 @@ public class Dive extends Game {
         player.location = Coord.get(w / 2, fallingSLayers.gridHeight / 3);
 
         mode = GameMode.DIVE;
-        mapInput.setKeyHandler(fallingKeys);
-        mapInput.setMouse(fallingMouse);
+        mapInput.setIgnoreInput(true);
+//        mapInput.setKeyHandler(fallingKeys);
+//        mapInput.setMouse(fallingMouse);
         fallingHandler.show(map);
 
         lastFall = Instant.now();
