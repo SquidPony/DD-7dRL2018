@@ -57,6 +57,7 @@ public class HandBuilt {
     public Physical emptySpace;
 
     public Physical nan;//trade currency (dust that's used for enchanting things and casting spells)
+    public Physical money;
 
     public Physical baseFood; // base item for anything edible
 
@@ -127,6 +128,12 @@ public class HandBuilt {
         nan = new Physical();
         nan.name = "nan";
         nan.description = "currency of power";
+
+        money = new Physical();
+        money.name = "Gold Coin";
+        money.color = SColor.CW_GOLD.toFloatBits();
+        money.symbol = '$';
+        money.blocking = false;
 
         baseFood = new Physical();
         baseFood.name = "fūd";

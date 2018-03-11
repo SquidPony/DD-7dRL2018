@@ -35,6 +35,7 @@ public enum Verb {
     MOVE_UP_RIGHT,
     MOVE_LOWER("Down in 3D space; foot-wards."),
     OPEN("For doors only, \"Interact\" should be used for containers."), // If INTERAXCT is changed this also needs to change
+    PAUSE("Hold it a minute!"),
     QUIT("Leave the game."),
     REST("Let a turn pass without doing anything."), // Does this allow more healing than WAIT?
     SAVE("Save the game."),

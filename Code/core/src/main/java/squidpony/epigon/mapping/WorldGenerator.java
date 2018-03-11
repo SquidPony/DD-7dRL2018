@@ -86,14 +86,10 @@ public class WorldGenerator {
         }
         rng = new StatefulRNG(handBuilt.rng.nextLong() ^ seed3);
         safeSpots.retract(2).randomScatter(rng, 8);
-        Physical money = new Physical();
-        money.name = "Gold Coin";
-        money.color = SColor.CW_GOLD.toFloatBits();
-        money.symbol = '$';
-        money.blocking = false;
+
         for (Coord cash : safeSpots) {
             if(map.contents[cash.x][cash.y].blockage == null) 
-                map.contents[cash.x][cash.y].add(RecipeMixer.buildPhysical(money));
+                map.contents[cash.x][cash.y].add(RecipeMixer.buildPhysical(handBuilt.money));
         }
 
         return map;

@@ -322,6 +322,7 @@ public class MapOverlayHandler {
         put(x, y, "Bumping into enemies attacks with");
         put(x, y + 1, "your default attack skill.");
         put(x, y + 3, "Waiting '.' skips your turn.");
+        put(x, y + 5, "Space ' ' pauses during falling.");
         y += 6;
 
         put(1, y, "Default Key Commands", headingColor);

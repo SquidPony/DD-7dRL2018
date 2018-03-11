@@ -3,18 +3,24 @@ package squidpony.epigon.display;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
+import java.util.ListIterator;
 import squidpony.ArrayTools;
 import squidpony.epigon.data.specific.Physical;
+import squidpony.epigon.dm.RecipeMixer;
 import squidpony.epigon.mapping.EpiMap;
 import squidpony.epigon.mapping.EpiTile;
+import squidpony.epigon.universe.Element;
 import squidpony.epigon.universe.LiveValueModification;
 import squidpony.epigon.universe.Stat;
 import squidpony.squidgrid.Direction;
 import squidpony.squidgrid.Radius;
 import squidpony.squidgrid.gui.gdx.SColor;
 import squidpony.squidgrid.gui.gdx.SparseLayers;
+import squidpony.squidgrid.gui.gdx.SquidColorCenter;
 import squidpony.squidgrid.gui.gdx.TextCellFactory.Glyph;
 import squidpony.squidmath.Coord;
+import squidpony.squidmath.DeckRNG;
+import squidpony.squidmath.RNG;
 
 /**
  * Oh no, you're falling!
@@ -23,6 +29,8 @@ public class FallingHandler {
 
     private SColor headingColor = SColor.CW_BLUE;
     private SColor keyColor = SColor.FLORAL_LEAF;
+
+    private SquidColorCenter colorCenter;
 
     private SparseLayers layers;
     private int width;
@@ -34,6 +42,9 @@ public class FallingHandler {
     private Physical player;
 
     private EpiMap map;
+    private Physical trail;
+    private RNG rng = new DeckRNG();
+    private FxHandler fx;
 
     private int scrollOffsetY;
     private boolean pressedUp; // attempting to hover
@@ -46,6 +57,18 @@ public class FallingHandler {
         midRight = halfWidth + quarterWidth;
         height = layers.gridHeight;
         this.layers = layers;
+
+        trail = new Physical();
+        trail.symbol = 0x2801; // center braille
+
+        colorCenter = new SquidColorCenter();
+
+        layers.addLayer();//first added panel adds at level 1, used for cases when we need "extra background"
+        layers.addLayer();//next adds at level 2, used for the cursor line
+        layers.addLayer();//next adds at level 3, used for effects
+        double[][] fov = new double[width][height];
+        ArrayTools.fill(fov, 1);
+        fx = new FxHandler(layers, 3, colorCenter, fov);
 
         ArrayTools.fill(this.layers.backgrounds, layers.defaultPackedBackground);
         hide();
@@ -71,6 +94,11 @@ public class FallingHandler {
 
     public void update(int yOffset) {
         clear();
+
+        if (map.contents[player.location.x][player.location.y].blockage != null) {
+            damagePlayer();
+        }
+
         scrollOffsetY = yOffset;
         int dx = -1; // TODO - have screen shift left or right when player gets outside of side mid range
         int dy = -1 + yOffset;
@@ -165,7 +193,7 @@ public class FallingHandler {
         player.stats.get(Stat.VIGOR).modify(LiveValueModification.add(-1));
 
         wigglePlayer();
-        layers.burst(player.location.x + 1, player.location.y - scrollOffsetY, 2, Radius.SPHERE, "*^&%*", SColor.CW_PALE_YELLOW.toFloatBits(), SColor.CW_FLUSH_RED.toFloatBits(), 0.3f);
+        layers.burst(player.location.x + 1, player.location.y - scrollOffsetY, 2, Radius.SPHERE, "*^!!*", SColor.CW_PALE_YELLOW.toFloatBits(), SColor.CW_FLUSH_RED.toFloatBits(), 0.3f);
     }
 
     private void wigglePlayer() {
@@ -174,41 +202,72 @@ public class FallingHandler {
     }
 
     public void move(Direction dir) {
-        if (dir == Direction.UP) {
+        doMovement(dir.deltaX, dir.deltaY);
+    }
+
+    private void doMovement(int x, int y) {
+        if (y < 0) {
             pressedUp = true;
-            return;
+            y = 0;
         }
 
-        Coord target = player.location.translate(dir);
-        // check against both backing map and current visible space vertically
-        if (target.isWithinRectangle(0, scrollOffsetY, map.width, Math.min(map.height, scrollOffsetY + height - 1))) {
+        Coord target = player.location.translate(x, y);
+
+        if (target.isWithinRectangle(0, scrollOffsetY, map.width, Math.min(map.height, scrollOffsetY + height - 2))) {
+            
+            EpiTile tile = map.contents[player.location.x][player.location.y];
+            tile.blockage = null;
+            Physical floor = tile.floor;
+            Physical t = RecipeMixer.buildPhysical(trail);
+            t.color = floor.color == SColor.TRANSPARENT.toFloatBits() ? rng.getRandomElement(SColor.RAINBOW).toFloatBits() : floor.color;
+            tile.floor = t;
+            
+            tile = map.contents[target.x][target.y];
             player.location = target;
+            if (tile.blockage != null) {
+                damagePlayer();
+            }
+            ListIterator<Physical> li = tile.contents.listIterator();
+            while (li.hasNext()) {
+                Physical p = li.next();
+                player.addToInventory(p);
+                fx.twinkle(target, Element.FIRE);// have to have it lower due to border offset
+                li.remove();
+            }
             update();
         } else {
             wigglePlayer();
         }
     }
 
-    public void fall() {
+    public void processInput() {
         int offX = 0, offY = 0;
-        if (!Gdx.input.isKeyPressed(Input.Keys.UP) && !Gdx.input.isKeyPressed(Input.Keys.NUMPAD_8)) {
-            ++offY;
-            if(Gdx.input.isKeyPressed(Input.Keys.DOWN) || Gdx.input.isKeyPressed(Input.Keys.NUM_2))
-                ++offY;
+        if (Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.NUMPAD_8)) {
+            --offY;
         }
-        if(Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.NUMPAD_4))
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN) || Gdx.input.isKeyPressed(Input.Keys.NUM_2)) {
+            ++offY;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.NUMPAD_4)) {
             --offX;
-        else if(Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.NUMPAD_6))
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.NUMPAD_6)) {
             ++offX;
-        player.location = player.location.translateCapped(offX, offY, map.width, Math.min(map.height, scrollOffsetY + height - 1));
+        }
+        doMovement(offX, offY);
+    }
+
+    public void fall() {
+        if (!pressedUp){
+            player.location = player.location.translate(Direction.DOWN);
+        }
+
         if (player.location.y <= scrollOffsetY) {
             player.location = player.location.translate(Direction.DOWN);
             damagePlayer();
-        } else if (map.contents[player.location.x][player.location.y].blockage != null) {
-            damagePlayer();
-        }
+        } 
 
-        //pressedUp = false;
+        pressedUp = false;
         update(scrollOffsetY + 1);
     }
 

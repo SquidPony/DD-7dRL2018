@@ -40,6 +40,7 @@ import squidpony.squidgrid.gui.gdx.SquidInput.KeyHandler;
 import squidpony.squidmath.*;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
@@ -126,9 +127,12 @@ public class Dive extends Game {
     private boolean processingCommand = true;
 
     // Timing
-    private long fallDelay = 100;
-    private Instant lastFall = Instant.now();
+    private long fallDelay = 300;
     private Instant nextFall = Instant.now();
+    private boolean paused = true;
+    private Instant pausedAt = Instant.now();
+    private long inputDelay = 100;
+    private Instant nextInput = Instant.now();
 
     // WIP stuff, needs large sample map
     private Stage mapStage, messageStage, infoStage, contextStage, mapOverlayStage, fallingStage;
@@ -353,13 +357,14 @@ public class Dive extends Game {
         processingCommand = false; // let the player do input
         infoHandler.showPlayerHealthAndArmor();
 
-        prepCrawl();
+//        prepCrawl();
+//        putCrawlMap();
 
-        putCrawlMap();
+        prepFall();
     }
 
     private void prepFall() {
-        message("Falling.....");
+        message("Falling..... Pres SPACE to continue");
         int w = World.DIVE_HEADER[0].length(), d = worldDepth;
         map = worldGenerator.buildDive(w, d, handBuilt);
 
@@ -367,13 +372,14 @@ public class Dive extends Game {
         player.location = Coord.get(w / 2, fallingSLayers.gridHeight / 3);
 
         mode = GameMode.DIVE;
-        mapInput.setIgnoreInput(true);
-//        mapInput.setKeyHandler(fallingKeys);
-//        mapInput.setMouse(fallingMouse);
+        mapInput.flush();
+        mapInput.setKeyHandler(fallingKeys);
+        mapInput.setMouse(fallingMouse);
         fallingHandler.show(map);
 
-        lastFall = Instant.now();
-        nextFall = lastFall.plusMillis(fallDelay);
+        paused = true;
+        nextFall = Instant.now().plusMillis(fallDelay);
+        pausedAt = Instant.now();
     }
 
     private void prepCrawl() {
@@ -419,6 +425,7 @@ public class Dive extends Game {
         player.appearance = mapSLayers.glyph(player.symbol, player.color, player.location.x, player.location.y);
 
         mode = GameMode.CRAWL;
+        mapInput.flush();
         mapInput.setKeyHandler(mapKeys);
         mapInput.setMouse(mapMouse);
     }
@@ -935,10 +942,15 @@ public class Dive extends Game {
                 putCrawlMap();
                 break;
             case DIVE:
-                if (Instant.now().isAfter(nextFall)) {
-                    lastFall = Instant.now();
-                    nextFall = lastFall.plusMillis(fallDelay);
-                    fallingHandler.fall();
+                if (!paused) {
+                    if (Instant.now().isAfter(nextInput)) {
+                        fallingHandler.processInput();
+                        nextInput = Instant.now().plusMillis(inputDelay);
+                    }
+                    if (Instant.now().isAfter(nextFall)) {
+                        nextFall = Instant.now().plusMillis(fallDelay);
+                        fallingHandler.fall();
+                    }
                     infoHandler.updateDisplay();
                 } else {
                     fallingHandler.update();
@@ -1254,18 +1266,6 @@ public class Dive extends Game {
                 case MOVE_RIGHT:
                     mapOverlayHandler.move(Direction.RIGHT);
                     break;
-                case MOVE_DOWN_LEFT:
-                    // TODO - keyboard controls in equipment screen
-                    break;
-                case MOVE_DOWN_RIGHT:
-                    // TODO - keyboard controls in equipment screen
-                    break;
-                case MOVE_UP_LEFT:
-                    // TODO - keyboard controls in equipment screen
-                    break;
-                case MOVE_UP_RIGHT:
-                    // TODO - keyboard controls in equipment screen
-                    break;
                 case DRAW:
                     equipItem();
                     mapOverlayHandler.updateDisplay();
@@ -1346,18 +1346,6 @@ public class Dive extends Game {
                 case MOVE_RIGHT:
                     mapOverlayHandler.move(Direction.RIGHT);
                     break;
-                case MOVE_DOWN_LEFT:
-                    // TODO - keyboard controls in help screen
-                    break;
-                case MOVE_DOWN_RIGHT:
-                    // TODO - keyboard controls in help screen
-                    break;
-                case MOVE_UP_LEFT:
-                    // TODO - keyboard controls in help screen
-                    break;
-                case MOVE_UP_RIGHT:
-                    // TODO - keyboard controls in help screen
-                    break;
                 case INFO_PRIOR:
                     infoHandler.prior();
                     break;
@@ -1392,17 +1380,32 @@ public class Dive extends Game {
                 return;
             }
             switch (verb) {
-                case MOVE_DOWN:
-                    fallingHandler.move(Direction.DOWN);
-                    break;
                 case MOVE_UP:
+                    nextInput = Instant.now().plusMillis(inputDelay);
                     fallingHandler.move(Direction.UP);
                     break;
+                case MOVE_DOWN:
+                    nextInput = Instant.now().plusMillis(inputDelay);
+                    fallingHandler.move(Direction.DOWN);
+                    break;
                 case MOVE_LEFT:
+                    nextInput = Instant.now().plusMillis(inputDelay);
                     fallingHandler.move(Direction.LEFT);
                     break;
                 case MOVE_RIGHT:
+                    nextInput = Instant.now().plusMillis(inputDelay);
                     fallingHandler.move(Direction.RIGHT);
+                    break;
+                case PAUSE:
+                    paused = !paused;
+                    if (paused) {
+                        pausedAt = Instant.now();
+                        message("You are hovering, have a look around!");
+                    } else { // need to calculate time offsets
+                        long pausedFor = pausedAt.until(Instant.now(), ChronoUnit.MILLIS);
+                        nextFall = nextFall.plusMillis(pausedFor);
+                        message("Falling once more!");
+                    }
                     break;
                 case SAVE:
                     // TODO
