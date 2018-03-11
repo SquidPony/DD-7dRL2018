@@ -54,6 +54,7 @@ public class HandBuilt {
     public Recipe swordRecipe;
 
     public Modification makeWall;
+    public Physical emptySpace;
 
     public Physical nan;//trade currency (dust that's used for enchanting things and casting spells)
 
@@ -151,6 +152,11 @@ public class HandBuilt {
         makeWall.symbol = '#';
         makeWall.large = true;
         makeWall.attached = true;
+
+        emptySpace = new Physical();
+        emptySpace.name = "ø";
+        emptySpace.symbol = ' ';
+        emptySpace.color = SColor.TRANSPARENT.toFloatBits();
     }
 
     private void initAbilities() {

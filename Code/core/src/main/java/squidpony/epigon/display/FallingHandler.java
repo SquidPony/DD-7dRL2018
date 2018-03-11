@@ -34,6 +34,7 @@ public class FallingHandler {
     private EpiMap map;
 
     private int scrollOffsetY;
+    private boolean pressedUp; // attempting to hover
 
     public FallingHandler(SparseLayers layers) {
         width = layers.gridWidth;
@@ -171,6 +172,11 @@ public class FallingHandler {
     }
 
     public void move(Direction dir) {
+        if (dir == Direction.UP) {
+            pressedUp = true;
+            return;
+        }
+
         Coord target = player.location.translate(dir);
         // check against both backing map and current visible space vertically
         if (target.isWithinRectangle(0, scrollOffsetY, map.width, Math.min(map.height, scrollOffsetY + height - 1))) {
@@ -182,10 +188,18 @@ public class FallingHandler {
     }
 
     public void fall() {
+        if (!pressedUp) {
+            player.location = player.location.translate(Direction.DOWN);
+        }
+
         if (player.location.y <= scrollOffsetY) {
             player.location = player.location.translate(Direction.DOWN);
             damagePlayer();
+        } else if (map.contents[player.location.x][player.location.y].blockage != null) {
+            damagePlayer();
         }
+
+        pressedUp = false;
         update(scrollOffsetY + 1);
     }
 

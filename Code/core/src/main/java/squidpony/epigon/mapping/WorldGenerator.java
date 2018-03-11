@@ -10,6 +10,7 @@ import squidpony.squidmath.StatefulRNG;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import squidpony.squidgrid.gui.gdx.SColor;
 import squidpony.squidgrid.mapping.styled.TilesetType;
 
 /**
@@ -26,6 +27,62 @@ public class WorldGenerator {
     private StatefulRNG rng;
     private Map<Stone, Physical> walls = new EnumMap<>(Stone.class);
     private Map<Stone, Physical> floors = new EnumMap<>(Stone.class);
+
+    public EpiMap buildDive(int width, int depth, HandBuilt handBuilt) {
+
+        world = buildWorld(width, 1, depth, handBuilt);
+
+        this.width = width;
+        this.height = depth + World.DIVE_HEADER.length;
+        this.depth = 1;
+        EpiMap map = new EpiMap(width, this.height);
+
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < depth; y++) {
+                map.contents[x][y + World.DIVE_HEADER.length] = world[y].contents[x][0];
+            }
+        }
+
+        // Add in dive header
+        for (int x = 0; x < World.DIVE_HEADER[0].length(); x++) {
+            for (int y = 0; y < World.DIVE_HEADER.length; y++) {
+                char c = World.DIVE_HEADER[y].charAt(x);
+                map.contents[x][y] = new EpiTile();
+                switch (c) {
+                    case 'ø':
+                        map.contents[x][y].floor = handBuilt.emptySpace;
+                        break;
+                    default:
+                        Physical p = new Physical();
+                        p.name = "" + c;
+                        p.symbol = c;
+                        p.color = SColor.GOLDEN.toFloatBits();
+                        p.blocking = true;
+                        map.contents[x][y].floor = p;
+                        break;
+                }
+            }
+        }
+
+        int centerGap = width / 2;
+        int gapSize = (int) (width * 0.8);
+
+        for (int level = World.DIVE_HEADER.length; level < this.height; level++) {
+            for (int x = centerGap - gapSize / 2; x < centerGap + gapSize / 2; x++) {
+                map.contents[x][level].floor = handBuilt.emptySpace;
+                map.contents[x][level].blockage = null;
+            }
+
+            gapSize += rng.between(-4, 4);
+            gapSize = Math.max(gapSize, 6);
+            gapSize = (int) Math.min(gapSize, width * 0.8);
+            centerGap += rng.between(-5, 5);
+            centerGap = Math.max(centerGap, gapSize / 2 + 1); // make sure it's not off the left side
+            centerGap = Math.min(centerGap, width - gapSize / 2 - 1); // make sure it's not off the right side
+        }
+
+        return map;
+    }
 
     public EpiMap[] buildWorld(int width, int height, int depth, HandBuilt handBuilt) {
         this.width = width;

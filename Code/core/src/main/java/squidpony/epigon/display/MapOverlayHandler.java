@@ -14,6 +14,7 @@ import squidpony.squidmath.OrderedMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import squidpony.epigon.Prefs;
 
 /**
  * Controls what happens on the full map overlay panel.
@@ -288,7 +289,7 @@ public class MapOverlayHandler {
 
         put(1, y, "Game Overview", headingColor);
         y++;
-        put(1, y, "Epigon is a roguelike. Probably gonna die and such.");
+        put(1, y, Prefs.getGameTitle() + " is a roguelike. Probably gonna die and such.");
         y += 2;
 
         put(1, y, "Ratings & Rarities, worst to best", headingColor);
@@ -302,6 +303,8 @@ public class MapOverlayHandler {
         y += 2;
 
         put(1, y, "Movement Keys (Numpad and Arrows also work)", headingColor);
+        y++;
+        put(3, y, "Falling mode only supports cardinal movement", headingColor);
         y++;
         int tempY = y;
         x = 2;

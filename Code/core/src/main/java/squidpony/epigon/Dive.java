@@ -11,7 +11,6 @@ import com.badlogic.gdx.utils.Timer.Task;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import squidpony.Messaging;
 import squidpony.epigon.combat.ActionOutcome;
 import squidpony.epigon.data.WeightedTableWrapper;
@@ -45,7 +44,6 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javafx.util.Duration;
 
 import static squidpony.squidgrid.gui.gdx.SColor.lerpFloatColors;
 
@@ -128,7 +126,7 @@ public class Dive extends Game {
     private boolean processingCommand = true;
 
     // Timing
-    private long fallDelay = 800;
+    private long fallDelay = 100;
     private Instant lastFall = Instant.now();
     private Instant nextFall = Instant.now();
 
@@ -145,7 +143,7 @@ public class Dive extends Game {
         worldWidth = 100;
         worldHeight = 50;
         worldDepth = 300;
-        int bigW = 70;
+        int bigW = World.DIVE_HEADER[0].length() + 2;
         int bigH = 26;
         int smallW = 50;
         int smallH = 22;
@@ -362,14 +360,8 @@ public class Dive extends Game {
 
     private void prepFall() {
         message("Falling.....");
-        int w = 50, h = 80, d = worldDepth;
-        EpiMap[] base = worldGenerator.buildWorld(w, h, d, handBuilt);
-        map = new EpiMap(w, d);
-        for (int x = 0; x < w; x++) {
-            for (int y = 0; y < d; y++) {
-                map.contents[x][y] = base[y].contents[x][h / 2]; // transfer vertical map into side-view display map
-            }
-        }
+        int w = World.DIVE_HEADER[0].length(), d = worldDepth;
+        map = worldGenerator.buildDive(w, d, handBuilt);
 
         // Start out in the horizontal middle and visual a bit down
         player.location = Coord.get(w / 2, fallingSLayers.gridHeight / 3);
@@ -946,6 +938,7 @@ public class Dive extends Game {
                     lastFall = Instant.now();
                     nextFall = lastFall.plusMillis(fallDelay);
                     fallingHandler.fall();
+                    infoHandler.updateDisplay();
                 } else {
                     fallingHandler.update();
                 }
