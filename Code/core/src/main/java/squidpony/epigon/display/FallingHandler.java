@@ -203,10 +203,10 @@ public class FallingHandler {
     }
 
     private void doMovement(int x, int y) {
-        if (y < 0) {
-            pressedUp = true;
-            y = 0;
-        }
+//        if (y < 0) {
+//            pressedUp = true;
+//            y = 0;
+//        }
 
         Coord target = player.location.translate(x, y);
 //        if (target.equals(player.location)){
@@ -282,7 +282,7 @@ public class FallingHandler {
 
         player.stats.get(Stat.HUNGER).tick();
 
-        pressedUp = false;
+//        pressedUp = false;
         update(scrollOffsetY + 1);
     }
 
