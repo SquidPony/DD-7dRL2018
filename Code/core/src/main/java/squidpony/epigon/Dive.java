@@ -966,9 +966,9 @@ public class Dive extends Game {
                 putCrawlMap();
                 break;
             case DIVE:
-                fallingHandler.setCurrentDepth(fallingSLayers.gridY(fallingStage.getCamera().position.y = MathUtils.lerp(startingY, finishY,
-                        (currentFallDuration + fallDuration) / timeToFall)));
                 if (!paused) {
+                    fallingHandler.setCurrentDepth(fallingSLayers.gridY(fallingStage.getCamera().position.y = MathUtils.lerp(startingY, finishY,
+                        (currentFallDuration + fallDuration) / timeToFall)));
                     currentFallDuration = (unpausedAt.until(Instant.now(), ChronoUnit.MILLIS));
                     if (Instant.now().isAfter(nextInput)) {
                         fallingHandler.processInput();
@@ -980,8 +980,8 @@ public class Dive extends Game {
                     }
                     infoHandler.updateDisplay();
 
-                    for (Stat s : Stat.values()){
-                        if (player.stats.get(s).actual() <= 0){
+                    for (Stat s : Stat.values()) {
+                        if (player.stats.get(s).actual() <= 0) {
                             paused = true;
                             showFallingGameOver();
                         }

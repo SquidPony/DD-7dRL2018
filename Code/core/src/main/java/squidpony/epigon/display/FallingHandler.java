@@ -99,18 +99,9 @@ public class FallingHandler {
         }
 
         scrollOffsetY = yOffset;
-        int dx = -1; // TODO - have screen shift left or right when player gets outside of side mid range
-        int dy = -1 + yOffset;
-        for (int x = 1; x < width - 1; x++){
-            for (int y = 1; y < height - 1; y++){
+        for (int x = 1; x < width - 1; x++) {
+            for (int y = 1; y < height - 1; y++) {
                 put(x, y, map.contents[x - 1][y - 1]);
-//                int x2 = x + dx;
-//                int y2 = y + dy;
-//                if (map.inBounds(x2,y2)){
-//                    put(x, y, map.contents[x2][y2]);
-//                } else {
-//                    put(x, y, ' ');
-//                }
             }
         }
 
@@ -273,14 +264,9 @@ public class FallingHandler {
     }
 
     public void fall() {
-        if (!pressedUp){
+        if (!pressedUp || player.location.y + currentDepth <= scrollOffsetY){
             move(Direction.DOWN);
         }
-
-        if (player.location.y + currentDepth <= scrollOffsetY) {
-            move(Direction.DOWN);
-            damagePlayer();
-        } 
 
         player.stats.get(Stat.HUNGER).tick();
 
