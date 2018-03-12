@@ -18,8 +18,6 @@ import squidpony.squidgrid.gui.gdx.SparseLayers;
 import squidpony.squidgrid.gui.gdx.SquidColorCenter;
 import squidpony.squidgrid.gui.gdx.TextCellFactory.Glyph;
 import squidpony.squidmath.Coord;
-import squidpony.squidmath.DeckRNG;
-import squidpony.squidmath.RNG;
 
 import java.util.ListIterator;
 
@@ -40,11 +38,11 @@ public class FallingHandler {
 
     private EpiMap map;
     private Physical trail;
-    private RNG rng = new DeckRNG();
     private FxHandler fx;
 
     private int scrollOffsetY;
     private boolean pressedUp; // attempting to hover
+    public boolean reachedGoal = false;
     private int currentDepth = 0;
 
     public FallingHandler(SparseLayers layers) {
@@ -99,13 +97,13 @@ public class FallingHandler {
         }
 
         scrollOffsetY = yOffset;
-        for (int x = 1; x < width - 1; x++) {
-            for (int y = 1; y < height - 1; y++) {
-                put(x, y, map.contents[x - 1][y - 1]);
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                put(x, y, map.contents[x][y]);
             }
         }
 
-        put(player.location.x + 1, player.location.y  + 1 + currentDepth, player.symbol, player.color);
+        put(player.location.x, player.location.y + currentDepth, player.symbol, player.color);
     }
 
     private void clear() {
@@ -193,7 +191,7 @@ public class FallingHandler {
     }
 
     private void smash(){
-        EpiTile tile = map.contents[player.location.x][player.location.y];
+        EpiTile tile = map.contents[player.location.x][player.location.y + currentDepth];
         if (tile.blockage != null){
             player.addToInventory(RecipeMixer.buildPhysical(tile.blockage));
             tile.blockage = null;
@@ -211,14 +209,14 @@ public class FallingHandler {
         }
 
         Coord target = player.location.translate(x, y);
-        if (target.equals(player.location)){
-            return;
-        }
+//        if (target.equals(player.location)){
+//            return;
+//        }
 
         // moving while falling makes you tired!
-        player.stats.get(Stat.SLEEP).addActual(-1);
+        //player.stats.get(Stat.SLEEP).addActual(-1);
 
-        if (target.isWithinRectangle(0, scrollOffsetY - currentDepth, map.width, Math.min(map.height, height - 2))) { //scrollOffsetY + 
+        if (target.isWithinRectangle(0, scrollOffsetY - currentDepth, map.width, map.height)) { //scrollOffsetY + 
             
             EpiTile tile = map.contents[player.location.x][player.location.y + currentDepth];
             tile.blockage = null;
@@ -236,8 +234,16 @@ public class FallingHandler {
             ListIterator<Physical> li = tile.contents.listIterator();
             while (li.hasNext()) {
                 Physical p = li.next();
+                if(p.unique)
+                {
+                    // reached goal at the bottom
+                    reachedGoal = true;
+                    //fx.layeredSparkle(target, 20, Radius.CIRCLE);
+                    update();
+                    return;
+                }
                 player.addToInventory(p);
-                fx.twinkle(Coord.get(target.x + 1, currentDepth + target.y + 1), Element.FIRE);// have to have it lower due to border offset
+                fx.twinkle(Coord.get(target.x, currentDepth + target.y), Element.FIRE);// have to have it lower due to border offset
                 li.remove();
             }
             update();
@@ -247,6 +253,10 @@ public class FallingHandler {
     }
 
     public void processInput() {
+        if(Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.Q))
+            Gdx.app.exit();
+        if(reachedGoal)
+            return;
         int offX = 0, offY = 0;
         if (Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.NUMPAD_8)) {
             --offY;
@@ -264,7 +274,9 @@ public class FallingHandler {
     }
 
     public void fall() {
-        if (!pressedUp || player.location.y + currentDepth <= scrollOffsetY){
+        if(reachedGoal)
+            return;
+        if (player.location.y + currentDepth <= scrollOffsetY){
             move(Direction.DOWN);
         }
 

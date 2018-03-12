@@ -12,6 +12,7 @@ import com.badlogic.gdx.utils.Timer.Task;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import squidpony.Messaging;
+import squidpony.StringKit;
 import squidpony.epigon.combat.ActionOutcome;
 import squidpony.epigon.data.WeightedTableWrapper;
 import squidpony.epigon.data.blueprint.ConditionBlueprint;
@@ -949,6 +950,22 @@ public class Dive extends Game {
         mapInput.flush();
         mapInput.setKeyHandler(fallingGameOverKeys);
     }
+    public void showFallingWin(){
+        message("You have reached the Dragon's Hoard!");
+        message("On the way, you gathered:");
+        List<String> lines = StringKit.wrap(StringKit.join(", ", player.inventory), messageSize.gridWidth - 2);
+        int start;
+        for (start = 0; start < lines.size() && start < 4; start++) {
+            message(lines.get(start));
+        }
+//        for (; start < 4; start++) {
+//            message("");
+//        }
+        message("Restart (r) or Quit (q)?");
+
+        mapInput.flush();
+        mapInput.setKeyHandler(fallingGameOverKeys);
+    }
 
     @Override
     public void render() {
@@ -966,9 +983,19 @@ public class Dive extends Game {
                 putCrawlMap();
                 break;
             case DIVE:
-                if (!paused) {
-                    fallingHandler.setCurrentDepth(fallingSLayers.gridY(fallingStage.getCamera().position.y = MathUtils.lerp(startingY, finishY,
+                if(fallingHandler.reachedGoal)
+                {
+                    paused = true;
+                    pausedAt = Instant.now();
+                    showFallingWin();
+                    fallingHandler.reachedGoal = false;
+                    fallingHandler.update();
+                    break;
+                }
+                // this goes here; otherwise the player "skips" abruptly when coming out of pause
+                fallingHandler.setCurrentDepth(fallingSLayers.gridY(fallingStage.getCamera().position.y = MathUtils.lerp(startingY, finishY,
                         (currentFallDuration + fallDuration) / timeToFall)));
+                if (!paused) {
                     currentFallDuration = (unpausedAt.until(Instant.now(), ChronoUnit.MILLIS));
                     if (Instant.now().isAfter(nextInput)) {
                         fallingHandler.processInput();

@@ -244,6 +244,7 @@ public class RecipeMixer {
         }
 
         Physical physical = new Physical();
+        physical.unique = blueprint.unique; //  misusing for goal
 
         physical.description = blueprint.description;
         physical.parent = blueprint;

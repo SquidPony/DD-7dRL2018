@@ -1,5 +1,7 @@
 package squidpony.epigon.mapping;
 
+import squidpony.epigon.data.WeightedTableWrapper;
+import squidpony.epigon.data.blueprint.Inclusion;
 import squidpony.epigon.data.blueprint.Stone;
 import squidpony.epigon.data.specific.Physical;
 import squidpony.epigon.dm.RecipeMixer;
@@ -11,8 +13,6 @@ import squidpony.squidmath.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import squidpony.epigon.data.WeightedTableWrapper;
-import squidpony.epigon.data.blueprint.Inclusion;
 
 /**
  * Creates and populates a world.
@@ -72,8 +72,7 @@ public class WorldGenerator {
         int gapSize = (int) (width * 0.4);
         long seed1 = handBuilt.rng.nextLong() + System.nanoTime(),
                 seed2 = handBuilt.rng.nextLong() + seed1,
-                seed3 = handBuilt.rng.nextLong() + seed2 ^ seed1, storedSeed
-        ;
+                seed3 = handBuilt.rng.nextLong() + seed2 ^ seed1;
         final double portionGapSize = 0.08 * width, offGapSize = 0.12 * width,
                 halfWidth = 0.5 * width, centerOff = 0.135 * width, extraWiggle = 0.02 * width;
         for (int level = World.DIVE_HEADER.length; level < height; level++) {
@@ -94,26 +93,36 @@ public class WorldGenerator {
         safeSpots.retract(2).randomScatter(rng, 8);
 
         RecipeMixer recipeMixer = new RecipeMixer();
-        WeightedTableWrapper<Physical> table = new WeightedTableWrapper<>(rng.nextLong(), RecipeMixer.buildPhysical(handBuilt.money), Inclusion.values().length * 3);
-        for (Inclusion inc : Inclusion.values()){
-            Physical gem = recipeMixer.buildPhysical(inc);
+        Inclusion[] inclusions = Inclusion.values();
+        Physical[] contents = new Physical[inclusions.length + 1];
+        double[] weights = new double[inclusions.length + 1];
+        for (int i = 0; i < inclusions.length; i++){
+            Physical gem = recipeMixer.buildPhysical(inclusions[i]);
             gem.symbol = '♦';
-            table.add(gem, rng.between(1, 3));
+            contents[i] = gem;
+            weights[i] = rng.between(1.0, 3.0);
         }
+        contents[inclusions.length] = handBuilt.money;
+        weights[inclusions.length] = inclusions.length * 3.25;
+        WeightedTableWrapper<Physical> table = new WeightedTableWrapper<>(rng.nextLong(), contents, weights);
 
         for (Coord cash : safeSpots) {
             if(map.contents[cash.x][cash.y].blockage == null) 
-                map.contents[cash.x][cash.y].add(table.random());
+                map.contents[cash.x][cash.y].add(RecipeMixer.buildPhysical(table.random()));
         }
 
         // Close off bottom with "goal"
         Physical goal = new Physical();
-        goal.color = SColor.ALICE_BLUE.toFloatBits();
-        goal.symbol = '▒';
+        goal.color = SColor.GOLDEN.toFloatBits();
+        goal.symbol = '♥';
+        goal.blocking = false;
+        goal.unique = true; // misusing this intentionally to mark special "objects"
         for (int x = 0; x < width; x++){
-            map.contents[x][height-2].floor = x % 2 == 0 ? goal : handBuilt.emptySpace;
+            map.contents[x][height-2].floor = goal;
+            map.contents[x][height-2].add(RecipeMixer.buildPhysical(goal));
             map.contents[x][height-2].blockage = null;
-            map.contents[x][height-1].floor = x % 2 == 1 ? goal : handBuilt.emptySpace;
+            map.contents[x][height-1].floor = goal;
+            map.contents[x][height-1].add(RecipeMixer.buildPhysical(goal));
             map.contents[x][height-1].blockage = null;
         }
 
