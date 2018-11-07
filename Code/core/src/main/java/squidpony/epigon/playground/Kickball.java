@@ -1,11 +1,8 @@
 package squidpony.epigon.playground;
 
-import com.badlogic.gdx.utils.JsonWriter;
-import squidpony.DataConverter;
 import squidpony.epigon.GauntRNG;
 import squidpony.epigon.ImmutableKey;
 import squidpony.epigon.Utilities;
-import squidpony.epigon.data.DataMaster;
 import squidpony.epigon.data.blueprint.*;
 import squidpony.epigon.data.generic.Formula;
 import squidpony.epigon.data.specific.Physical;
@@ -13,10 +10,6 @@ import squidpony.epigon.universe.LiveValue;
 import squidpony.epigon.universe.Rating;
 import squidpony.epigon.universe.Stat;
 import squidpony.squidmath.OrderedSet;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * A class for doing various tests and utilities work.
@@ -43,11 +36,11 @@ public class Kickball {
         materials.addAll(Paper.values());
         materials.addAll(Stone.values());
         materials.addAll(Wood.values());
-        for(Material m : materials)
-        {
+        for (Material m : materials) {
             System.out.println(Utilities.capitalizeFirst(m.toString()) + "? I can pay $" + m.getValue() + ", not a nan more.");
         }
     }
+
     private void testFormulas() {
         HandBuilt handBuilt = new HandBuilt();
         Physical source = handBuilt.mixer.buildPhysical(handBuilt.playerBlueprint);
@@ -68,30 +61,15 @@ public class Kickball {
 
     private void testBaseHitChance(Physical source, Physical target) {
         System.out.println("Hit chance of " + source.stats.get(Stat.AIM).actual()
-            + " vs " + target.stats.get(Stat.DODGE).actual()
-            + " is " + Formula.baseHitChance(source, target));
+                + " vs " + target.stats.get(Stat.DODGE).actual()
+                + " is " + Formula.baseHitChance(source, target));
 
     }
 
     private void testBaseDamageDealt(Physical source, Physical target) {
         System.out.println("Damage dealt of " + source.stats.get(Stat.IMPACT).actual()
-            + " vs " + target.stats.get(Stat.TOUGHNESS).actual()
-            + " is " + Formula.baseDamageDealt(source, target));
-    }
-
-    private void printStones() {
-        DataConverter convert = new DataConverter(JsonWriter.OutputType.json);
-        //convert.setIgnoreUnknownFields(true);
-        //convert.setUsePrototypes(true);
-
-        List<Physical> stones = Arrays.stream(Stone.values())
-            .map(s -> makePhysicalFromStone(s))
-            .collect(Collectors.toList());
-
-        String json = convert.prettyPrint(stones);
-        stones = convert.fromJson(List.class, json);
-
-        System.out.println(convert.prettyPrint(stones));
+                + " vs " + target.stats.get(Stat.TOUGHNESS).actual()
+                + " is " + Formula.baseDamageDealt(source, target));
     }
 
     private Physical makePhysicalFromStone(Stone stone) {
@@ -102,30 +80,4 @@ public class Kickball {
         return pb;
     }
 
-    private void testJSON() {
-        DataConverter convert = new DataConverter(JsonWriter.OutputType.json);
-        convert.setIgnoreUnknownFields(true);
-        convert.setUsePrototypes(false);
-
-        HandBuilt starter = new HandBuilt();
-
-        // Create an actual player
-        //Physical player = starter.player;
-//        System.out.println(convert.prettyPrint(player));
-        // Physical sword = starter.sword;
-//        System.out.println(convert.prettyPrint(sword));
-        //PhysicalBlueprint pj = starter.playerBlueprint;
-//        System.out.println(convert.prettyPrint(playerBlueprint));
-//        String playerFile = Gdx.files.internal("config/player.json").readString();
-//        playerBlueprint = convert.fromJson(PhysicalBlueprint.class, playerFile);
-        //String json = convert.prettyPrint(pj);
-//        System.out.println(json);
-        //pj = convert.fromJson(PhysicalBlueprint.class, json);
-        // System.out.println(convert.prettyPrint(playerBlueprint));
-        DataMaster dm = new DataMaster();
-//        dm.add(player);
-//        dm.add(sword);
-        //dm.add(pj);
-        System.out.println(convert.prettyPrint(dm.getKnown()));
-    }
 }

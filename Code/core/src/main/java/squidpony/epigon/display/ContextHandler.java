@@ -1,6 +1,7 @@
 package squidpony.epigon.display;
 
 import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.math.Frustum;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import squidpony.ArrayTools;
 import squidpony.epigon.Dive;
@@ -83,9 +84,10 @@ public class ContextHandler {
             @Override
             public void draw(Batch batch, float parentAlpha) {
                 super.draw(batch, parentAlpha);
+                Frustum frustum = layers.getStage().getCamera().frustum;
                 float xo = getX() + Dive.contextSize.cellWidth, yo = getY(), yOff = yo + 1f + mainMap.gridHeight * 3f;
                 //mainMap.font.configureShader(batch);
-                mainMap.getLayer(0).draw(batch, miniMapFont, xo, yOff, '\u0000');
+                mainMap.getLayer(0).draw(batch, miniMapFont, frustum, xo, yOff, '\u0000');
                 int x, y;
                 ArrayList<TextCellFactory.Glyph> glyphs = mainMap.glyphs;
                 for (int i = 0; i < glyphs.size(); i++) {
@@ -97,7 +99,7 @@ public class ContextHandler {
                             (y = Math.round((glyph.getY() - yOff) / -3 + mainMap.gridHeight)) < 0 || y >= mainMap.gridHeight ||
                             mainMap.backgrounds[x][y] == 0f)
                         continue;
-                    miniMapFont.draw(batch, '\u0000', glyph.color, glyph.getX(), glyph.getY());
+                    miniMapFont.draw(batch, '\u0000', glyph.getColor(), glyph.getX(), glyph.getY());
                 }
             }
         };

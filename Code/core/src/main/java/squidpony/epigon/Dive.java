@@ -120,7 +120,7 @@ public class Dive extends Game {
     private GreasedRegion blocked;
     private DijkstraMap toPlayerDijkstra;
     private Coord cursor;
-    private Physical player;
+    public Physical player;
     private ArrayList<Coord> awaitedMoves;
     private double[][] fovResult;
     private double[][] priorFovResult;
@@ -898,9 +898,9 @@ public class Dive extends Game {
                     // sightAmount should only be 1.0 if the player is standing in that cell, currently
                     if ((creature = creatures.get(Coord.get(x, y))) != null ) {
                         putWithLight(x, y, ' ', 0f, sightAmount, noise);
-                        creature.appearance.color = lerpFloatColors(unseenCreatureColorFloat, creature.color, 0.5f + 0.35f * sightAmount);
+                        creature.appearance.setPackedColor(lerpFloatColors(unseenCreatureColorFloat, creature.color, 0.5f + 0.35f * sightAmount));
                         if(creature.overlayAppearance != null)
-                            creature.overlayAppearance.color = lerpFloatColors(unseenCreatureColorFloat, creature.overlayColor, 0.5f + 0.35f * sightAmount);
+                            creature.overlayAppearance.setPackedColor(lerpFloatColors(unseenCreatureColorFloat, creature.overlayColor, 0.5f + 0.35f * sightAmount));
                         mapSLayers.clear(x, y, 0);
                         if (!creature.wasSeen) { // stop auto-move if a new creature pops into view
                             awaitedMoves.clear();
