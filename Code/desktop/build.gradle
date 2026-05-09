@@ -40,7 +40,7 @@ tasks.register('debug', JavaExec) {
 
 tasks.register('distJar', Jar) {
     dependsOn tasks.named('classes')
-    archiveFileName = "Epigon-${project.version}.jar"
+    archiveFileName = "${appName}-${project.version}.jar"
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes 'Main-Class': application.mainClass.get()
@@ -63,12 +63,12 @@ tasks.register('localExecutable', Exec) {
 
     doFirst {
         localReleaseDir.get().asFile.mkdirs()
-        delete(new File(localReleaseDir.get().asFile, 'Epigon'))
-        delete(new File(localReleaseDir.get().asFile, 'Epigon.app'))
-        def jarName = "Epigon-${project.version}.jar"
+        delete(new File(localReleaseDir.get().asFile, appName))
+        delete(new File(localReleaseDir.get().asFile, "${appName}.app"))
+        def jarName = "${appName}-${project.version}.jar"
         commandLine 'jpackage',
             '--type', 'app-image',
-            '--name', 'Epigon',
+            '--name', appName,
             '--input', file("$buildDir/libs").absolutePath,
             '--dest', localReleaseDir.get().asFile.absolutePath,
             '--main-jar', jarName,
@@ -81,10 +81,10 @@ tasks.register('localExecutableZip', Zip) {
     group = 'distribution'
     description = 'Creates a zip archive of the local native app-image executable.'
     destinationDirectory = layout.buildDirectory.dir('release').get().asFile
-    archiveFileName = "Epigon-${project.version}-${System.getProperty('os.name').replaceAll('\\\\s+', '')}.zip"
+    archiveFileName = "${appName}-${project.version}-${System.getProperty('os.name').replaceAll('\\s+', '')}.zip"
     from(localReleaseDir) {
-        include 'Epigon/**'
-        include 'Epigon.app/**'
+        include "${appName}/**"
+        include "${appName}.app/**"
     }
 }
 
