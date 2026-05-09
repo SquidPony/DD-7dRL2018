@@ -23,6 +23,8 @@ ext {
     assetsDir = file('assets')
 }
 
+def legacyAppName = 'Epigon'
+
 tasks.named('run', JavaExec) {
     workingDir = assetsDir
     standardInput = System.in
@@ -42,6 +44,11 @@ tasks.register('distJar', Jar) {
     dependsOn tasks.named('classes')
     archiveFileName = "${appName}-${project.version}.jar"
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    doFirst {
+        delete(fileTree("$buildDir/libs") {
+            include "${legacyAppName}-*.jar"
+        })
+    }
     manifest {
         attributes 'Main-Class': application.mainClass.get()
     }
@@ -65,6 +72,8 @@ tasks.register('localExecutable', Exec) {
         localReleaseDir.get().asFile.mkdirs()
         delete(new File(localReleaseDir.get().asFile, appName))
         delete(new File(localReleaseDir.get().asFile, "${appName}.app"))
+        delete(new File(localReleaseDir.get().asFile, legacyAppName))
+        delete(new File(localReleaseDir.get().asFile, "${legacyAppName}.app"))
         def jarName = "${appName}-${project.version}.jar"
         commandLine 'jpackage',
             '--type', 'app-image',
@@ -82,6 +91,11 @@ tasks.register('localExecutableZip', Zip) {
     description = 'Creates a zip archive of the local native app-image executable.'
     destinationDirectory = layout.buildDirectory.dir('release').get().asFile
     archiveFileName = "${appName}-${project.version}-${System.getProperty('os.name').replaceAll('\\s+', '')}.zip"
+    doFirst {
+        delete(fileTree(localReleaseDir) {
+            include "${legacyAppName}-*.zip"
+        })
+    }
     from(localReleaseDir) {
         include "${appName}/**"
         include "${appName}.app/**"
