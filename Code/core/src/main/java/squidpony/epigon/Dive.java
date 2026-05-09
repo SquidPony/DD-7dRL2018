@@ -36,6 +36,7 @@ import squidpony.panel.IColoredString;
 import squidpony.squidai.DijkstraMap;
 import squidpony.squidgrid.Direction;
 import squidpony.squidgrid.FOV;
+import squidpony.squidgrid.Measurement;
 import squidpony.squidgrid.Radius;
 import squidpony.squidgrid.gui.gdx.*;
 import squidpony.squidgrid.gui.gdx.SquidInput.KeyHandler;
@@ -426,7 +427,7 @@ public class Dive extends Game {
         }
 
         calcFOV(player.location.x, player.location.y);
-        toPlayerDijkstra = new DijkstraMap(map.simpleChars(), DijkstraMap.Measurement.EUCLIDEAN);
+        toPlayerDijkstra = new DijkstraMap(map.simpleChars(), Measurement.EUCLIDEAN);
         toPlayerDijkstra.rng = new RNG(); // random seed, player won't make deterministic choices
         blocked = new GreasedRegion(map.width, map.height);
         calcDijkstra();
