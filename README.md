@@ -1,9 +1,31 @@
 # DD-7dRL2018
 Dragon Dive, a 7 Day Roguelike for 2018 about riding dragons and then falling off of them.
 
-The dragon is inplied, the falling is real!
+The dragon is implied, the falling is real!
 
-## Building
+## Project Structure
+
+- `Code/core`: shared game logic and data.
+- `Code/desktop`: desktop launcher, platform config, and assets.
+- `Code/gradlew`: Gradle wrapper entrypoint for all scripts.
+
+## How to Play (Run Locally)
+
+From `Code/`, run:
+
+```bash
+./gradlew :desktop:run
+```
+
+This starts the desktop game using assets from `Code/desktop/assets`.
+
+For a debug JVM run, use:
+
+```bash
+./gradlew :desktop:debug
+```
+
+## Building and Packaging
 
 From [Code/](Code), run:
 
@@ -32,6 +54,8 @@ If you only want the unpacked app-image (no zip), run:
 ```bash
 ./gradlew :desktop:localExecutable
 ```
+
+`localExecutable` and `localExecutableZip` require `jpackage` to be available in your JDK installation.
 
 ## Automated Releases
 
