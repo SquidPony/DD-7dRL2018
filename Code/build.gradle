@@ -9,13 +9,12 @@ buildscript {
 
 allprojects {
     apply plugin: "java"
-    sourceCompatibility = 1.8
-    version = '1.0'
+    version = '1.0.0'
     ext {
         appName = "EpigonProto"
-        squidlibVersion = '5a0a15c434'
+        squidlibVersion = '3.0.6'
         jacksonVersion = '2.8.6'
-        gdxVersion = '1.9.8'
+        gdxVersion = '1.11.0'
         roboVMVersion = '1.12.0'
         box2DLightsVersion = '1.4'
         ashleyVersion = '1.7.0'
@@ -29,20 +28,31 @@ allprojects {
         maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
         maven { url "https://oss.sonatype.org/content/repositories/releases/" }
     }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 25
+    }
 }
 
 project(":desktop") {
     dependencies {
-        compile project(":core")
-        compile "com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion"
-        compile "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+        implementation project(":core")
+        implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+        runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
     }
 }
 
 project(":core") {
     dependencies {
-        compile "com.github.SquidPony.SquidLib:squidlib:$squidlibVersion"
-        compile "com.badlogicgames.gdx:gdx:$gdxVersion"
+        implementation "com.squidpony:squidlib:$squidlibVersion"
+        implementation "com.badlogicgames.gdx:gdx:$gdxVersion"
         //compile "com.github.SquidPony.SquidLib:squidlib-extra:$squidlibVersion"
         ///// implicitly included by dep on squidlib; don't need to explicitly require
         //compile "com.github.tommyettinger:regexodus:$regexodusVersion"
