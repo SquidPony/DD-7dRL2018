@@ -65,10 +65,10 @@ jobs:
           mkdir -p release
           jpackage \
             --type app-image \
-            --name Epigon \
+            --name "Dragon's Dive" \
             --input Code/desktop/build/libs \
             --dest release \
-            --main-jar "Epigon-${VERSION}.jar" \
+            --main-jar "Dragon's Dive-${VERSION}.jar" \
             --main-class squidpony.epigon.desktop.DesktopLauncher
 
       - name: Package app image (Windows)
@@ -78,10 +78,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path release | Out-Null
           jpackage `
             --type app-image `
-            --name Epigon `
+            --name "Dragon's Dive" `
             --input Code/desktop/build/libs `
             --dest release `
-            --main-jar "Epigon-$env:VERSION.jar" `
+            --main-jar "Dragon's Dive-$env:VERSION.jar" `
             --main-class squidpony.epigon.desktop.DesktopLauncher
 
       - name: Archive package (Linux/macOS)
@@ -89,18 +89,18 @@ jobs:
         shell: bash
         run: |
           cd release
-          zip -r "Epigon-${VERSION}-${RUNNER_OS}.zip" Epigon*
+          zip -r "Dragon's Dive-${VERSION}-${RUNNER_OS}.zip" "Dragon's Dive"*
 
       - name: Archive package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path release/Epigon* -DestinationPath "release/Epigon-$env:VERSION-$env:RUNNER_OS.zip" -Force
+          Compress-Archive -Path release/"Dragon's Dive"* -DestinationPath "release/Dragon's Dive-$env:VERSION-$env:RUNNER_OS.zip" -Force
 
       - name: Upload platform artifact
         uses: actions/upload-artifact@v4
         with:
-          name: epigon-${{ runner.os }}
+          name: dragons-dive-${{ runner.os }}
           path: release/*.zip
 
   release:
@@ -134,6 +134,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: Epigon ${{ steps.version.outputs.version }}
+          name: Dragon's Dive ${{ steps.version.outputs.version }}
           generate_release_notes: true
           files: release-artifacts/**/*.zip
