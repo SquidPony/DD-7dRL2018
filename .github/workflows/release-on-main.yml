@@ -28,6 +28,9 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: false
+          cache-read-only: false
 
       - name: Compute version
         id: version
@@ -38,7 +41,22 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Build fat jar
-        run: gradle -p Code :desktop:distJar
+        shell: bash
+        run: |
+          cd Code
+          for attempt in 1 2 3; do
+            echo "Build attempt $attempt/3..."
+            if gradle :desktop:distJar --refresh-dependencies; then
+              echo "Build succeeded on attempt $attempt"
+              exit 0
+            fi
+            if [ $attempt -lt 3 ]; then
+              echo "Build failed, waiting before retry..."
+              sleep 30
+            fi
+          done
+          echo "Build failed after 3 attempts"
+          exit 1
 
       - name: Package app image (Linux/macOS)
         if: runner.os != 'Windows'
