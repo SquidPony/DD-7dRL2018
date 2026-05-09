@@ -1,0 +1,51 @@
+// Gradle init script to configure repository mirrors for improved CI reliability
+// Placed in Code/init.gradle and automatically applied by Gradle
+
+allprojects {
+    repositories {
+        all { ArtifactRepository repo ->
+            if (repo instanceof MavenArtifactRepository) {
+                def url = repo.url.toString()
+                if (url.contains('repo.maven.apache.org') || url.contains('repo1.maven.org')) {
+                    println("Removing potentially blocked repository: $url")
+                    remove repo
+                }
+            }
+        }
+        
+        // Primary Maven Central mirror with good global coverage
+        maven {
+            url "https://repo1.maven.org/maven2/"
+            metadataSources {
+                mavenPom()
+                artifact()
+            }
+        }
+        
+        // Fallback to Sonatype releases
+        maven {
+            url "https://oss.sonatype.org/content/repositories/releases/"
+            metadataSources {
+                mavenPom()
+                artifact()
+            }
+        }
+        
+        // JitPack for GitHub-based dependencies
+        maven {
+            url "https://jitpack.io"
+            metadataSources {
+                mavenPom()
+                artifact()
+            }
+        }
+        
+        // Maven Central via different path as fallback
+        mavenCentral {
+            metadataSources {
+                mavenPom()
+                artifact()
+            }
+        }
+    }
+}
