@@ -9,7 +9,7 @@ public class Prefs {
 
     static private int screenWidth = Dive.totalPixelWidth();
     static private int screenHeight = Dive.totalPixelHeight();
-    static private String title = "Dragon Dive - Fall To Riches";
+    static private String title = "Dragon's Dive - Fall To Riches";
     static private String prefKey = "DragonDive";
     static private boolean debug = true;
 
