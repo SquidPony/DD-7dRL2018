@@ -2,12 +2,6 @@ Iosevka-Family-contents.txt
 Iosevka-Family-distance.fnt
 Iosevka-Family-distance.png
 Iosevka-License.md
-Iosevka-Slab-Family-distance.fnt
-Iosevka-Slab-Family-distance.png
-Iosevka-Slab-distance.fnt
-Iosevka-Slab-distance.png
-Iosevka-distance.fnt
-Iosevka-distance.png
 config/base.json
 config/player.json
 config/playerOutput.json
@@ -19,16 +13,5 @@ images/icons/libgdx64.png
 images/icons/logo128.png
 images/icons/logo16.png
 images/icons/logo32.png
-music/keep.txt
-skin/keep.txt
-sound fx/footstep00.ogg
-sound fx/footstep01.ogg
-sound fx/footstep02.ogg
-sound fx/footstep03.ogg
-sound fx/footstep04.ogg
-sound fx/footstep05.ogg
-sound fx/footstep06.ogg
-sound fx/footstep07.ogg
-sound fx/footstep08.ogg
-sound fx/footstep09.ogg
-sound fx/keep.txt
+music/.gitkeep
+skin/.gitkeep

@@ -82,9 +82,6 @@ public class Dive extends Game {
 
     private GameMode mode = GameMode.CRAWL;
 
-    // Audio
-    private SoundManager sound;
-
     // Display
     SpriteBatch batch;
     private SquidColorCenter colorCenter;
@@ -179,7 +176,6 @@ public class Dive extends Game {
         System.out.println("Working in folder: " + System.getProperty("user.dir"));
 
         System.out.println("Loading sound manager.");
-        sound = new SoundManager();
         colorCenter = new SquidColorCenter();
 
         // Set the map size early so things can reference it
@@ -767,7 +763,6 @@ public class Dive extends Game {
             if(player.overlayAppearance != null)
                 mapSLayers.slide(player.overlayAppearance, player.location.x, player.location.y, newX, newY, 0.145f, null);
             player.location = newPos;
-            sound.playFootstep();
         } else {
             Physical thing = map.contents[newX][newY].getCreature();
             if (thing != null) {
@@ -1056,7 +1051,7 @@ public class Dive extends Game {
         messageViewport.apply(false);
         messageStage.act();
         messageStage.draw();
-        
+
         if(mode.equals(GameMode.CRAWL)) {
             //here we apply the other viewport, which clips a different area while leaving the message area intact.
             mapViewport.apply(false);
@@ -1088,7 +1083,7 @@ public class Dive extends Game {
             //so we can draw the actors independently of the stage while still in the same batch
             //player.appearance.draw(batch, 1.0f);
             //we still need to end
-            batch.end(); 
+            batch.end();
         }
         //uncomment the upcoming line if you want to see how fast this can run at top speed...
         //for me, tommyettinger, on a laptop with recent integrated graphics, I get about 500 FPS.
@@ -1633,7 +1628,7 @@ public class Dive extends Game {
             if (cursor.x == screenX && cursor.y == screenY){
                 return false;
             }
-            
+
             if (screenX < 0 || screenX >= map.width || screenY < 0 || screenY >= map.height || fovResult[screenX][screenY] <= 0.0) {
                 toCursor.clear(); // don't show path when mouse moves out of range or view
                 return false;

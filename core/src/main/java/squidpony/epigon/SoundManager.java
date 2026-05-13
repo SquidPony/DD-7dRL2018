@@ -19,7 +19,7 @@ import java.util.TreeMap;
 public class SoundManager {
 
     private static final String footstep = "footstep0";
-    private static final int totalFootsteps = 9;
+    private static final int totalFootsteps = 10;
     private int lastFootstep = 0;
 
     private boolean musicLoaded = false, soundfxLoaded = false;
@@ -42,11 +42,23 @@ public class SoundManager {
 
     private void loadSoundFXResources() {
 
-        for (FileHandle f : Gdx.files.internal("sound fx").list()) {
+        FileHandle[] list = {
+            Gdx.files.internal("sound fx/footstep00.ogg"),
+            Gdx.files.internal("sound fx/footstep01.ogg"),
+            Gdx.files.internal("sound fx/footstep02.ogg"),
+            Gdx.files.internal("sound fx/footstep03.ogg"),
+            Gdx.files.internal("sound fx/footstep04.ogg"),
+            Gdx.files.internal("sound fx/footstep05.ogg"),
+            Gdx.files.internal("sound fx/footstep06.ogg"),
+            Gdx.files.internal("sound fx/footstep07.ogg"),
+            Gdx.files.internal("sound fx/footstep08.ogg"),
+            Gdx.files.internal("sound fx/footstep09.ogg"),
+        };
+        for (FileHandle f : list) {
             String name = f.name();
-            if (readableFileTypes.contains(name.substring(name.lastIndexOf('.') + 1))) {
+            if (readableFileTypes.contains(f.extension())) {
                 //System.out.println("Loading sound fx: " + name);
-                Sound sound = Gdx.audio.newSound(Gdx.files.internal("sound fx/" + name));
+                Sound sound = Gdx.audio.newSound(f);
                 soundMap.put(f.nameWithoutExtension(), sound);
             }
         }
@@ -91,14 +103,15 @@ public class SoundManager {
     }
 
     private void loadMusicResources() {
-        for (FileHandle f : Gdx.files.internal("music").list()) {
-            String name = f.name();
-            if (readableFileTypes.contains(name.substring(name.lastIndexOf('.') + 1))) {
-                Music music = Gdx.audio.newMusic(Gdx.files.internal("music/" + name));
-                music.setLooping(true);
-                musicMap.put(f.nameWithoutExtension(), music);
-            }
-        }
+        // No music currently
+//        for (FileHandle f : Gdx.files.internal("music").list()) {
+//            String name = f.name();
+//            if (readableFileTypes.contains(name.substring(name.lastIndexOf('.') + 1))) {
+//                Music music = Gdx.audio.newMusic(Gdx.files.internal("music/" + name));
+//                music.setLooping(true);
+//                musicMap.put(f.nameWithoutExtension(), music);
+//            }
+//        }
 
         musicLoaded = true;
     }
@@ -194,7 +207,8 @@ public class SoundManager {
      * Plays a random footstep sound.
      */
     public void playFootstep(){
-        int step = ThrustAltRNG.determineBounded( System.currentTimeMillis(),totalFootsteps - 1) + 1;
+        int step = ThrustAltRNG.determineBounded( System.currentTimeMillis(), totalFootsteps);
+        System.out.println("Playing sound " + footstep + step);
         playSoundFX(footstep + step);
     }
 }
