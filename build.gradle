@@ -56,7 +56,7 @@ configure(subprojects) {
 
 subprojects {
   version = "$projectVersion"
-  ext.appName = 'DD-7dRL2018'
+  ext.appName = 'DragonDive'
   repositories {
     mavenCentral()
     // You may want to remove the following line if you have errors downloading dependencies.
@@ -67,4 +67,4 @@ subprojects {
   }
 }
 
-eclipse.project.name = 'DD-7dRL2018' + '-parent'
+eclipse.project.name = 'DragonDive' + '-parent'
