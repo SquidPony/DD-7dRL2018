@@ -39,6 +39,6 @@ public class TeaVMBuilder {
             .addSourceFileProvider(new DirectorySourceFileProvider(new File("../core/src/main/java/")))
             // You can also register any classes or packages that require reflection here:
             //.addReflectionClass("squidpony.epigon.reflect")
-            .build(new File("build/dist"));
+            .build(new File("../docs/"));
     }
 }

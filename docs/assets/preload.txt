@@ -1,0 +1,44 @@
+i:b:/assets.txt:807:1
+i:b:/config/base.json:1727:1
+i:b:/config/player.json:965:1
+i:b:/config/playerOutput.json:2046:1
+i:b:/config/stone.json:272:1
+i:b:/images/icons/libgdx128.png:2338:1
+i:b:/images/icons/libgdx16.png:496:1
+i:b:/images/icons/libgdx32.png:806:1
+i:b:/images/icons/libgdx64.png:1333:1
+i:b:/images/icons/logo128.png:13256:1
+i:b:/images/icons/logo16.png:477:1
+i:b:/images/icons/logo32.png:1385:1
+i:b:/Iosevka-distance.fnt:234247:1
+i:b:/Iosevka-distance.png:540175:1
+i:b:/Iosevka-Family-contents.txt:6338:1
+i:b:/Iosevka-Family-distance.fnt:934615:1
+i:b:/Iosevka-Family-distance.png:674020:1
+i:b:/Iosevka-License.md:6670:1
+i:b:/Iosevka-Slab-distance.fnt:234129:1
+i:b:/Iosevka-Slab-distance.png:529329:1
+i:b:/Iosevka-Slab-Family-distance.fnt:934625:1
+i:b:/Iosevka-Slab-Family-distance.png:696855:1
+i:b:/music/keep.txt:0:1
+i:b:/skin/keep.txt:0:1
+i:b:/sound fx/footstep00.ogg:9475:1
+i:b:/sound fx/footstep01.ogg:9900:1
+i:b:/sound fx/footstep02.ogg:9528:1
+i:b:/sound fx/footstep03.ogg:10559:1
+i:b:/sound fx/footstep04.ogg:11303:1
+i:b:/sound fx/footstep05.ogg:10288:1
+i:b:/sound fx/footstep06.ogg:9885:1
+i:b:/sound fx/footstep07.ogg:10264:1
+i:b:/sound fx/footstep08.ogg:9242:1
+i:b:/sound fx/footstep09.ogg:9356:1
+i:b:/sound fx/keep.txt:0:1
+c:b:/webapp/WEB-INF/web.xml:283:1
+c:b:/com/badlogic/gdx/utils/lsans-15.png:10270:1
+c:b:/com/badlogic/gdx/utils/lsans-15.fnt:17711:1
+c:b:/com/badlogic/gdx/graphics/g3d/particles/particles.fragment.glsl:820:1
+c:b:/com/badlogic/gdx/graphics/g3d/particles/particles.vertex.glsl:2886:1
+c:b:/com/badlogic/gdx/graphics/g3d/shaders/depth.vertex.glsl:2931:1
+c:b:/com/badlogic/gdx/graphics/g3d/shaders/default.vertex.glsl:9096:1
+c:b:/com/badlogic/gdx/graphics/g3d/shaders/depth.fragment.glsl:869:1
+c:b:/com/badlogic/gdx/graphics/g3d/shaders/default.fragment.glsl:5874:1
